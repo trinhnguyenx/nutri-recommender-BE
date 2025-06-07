@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "outDir": "./dist",
+    "baseUrl": "./src",
+    "paths": {
+      "@/*": ["*"]
+    },
+    "target": "ES2020",           
+    "module": "CommonJS",          
+    "esModuleInterop": true,         
+    "skipLibCheck": true,
+    "strict": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "forceConsistentCasingInFileNames": true,
+    "moduleResolution": "Node", 
+    "resolveJsonModule": true,
+    "noPropertyAccessFromIndexSignature": false,
+    "strictPropertyInitialization": false,
+    "types": ["node"]
+  },
+  "exclude": ["node_modules"],
+  "include": ["src/**/*.ts", "typeorm.config.ts"]
+}
