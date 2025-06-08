@@ -2,6 +2,8 @@ import { Column, Entity, PrimaryGeneratedColumn, OneToMany, ColumnTypeUndefinedE
 import { MealPlan } from './mealplan.entity';
 import { CalculationResult } from './caculation.result';
 import { Conversation } from './conversation.entity';
+import {PaymentTransaction} from './payment.entity';
+
 @Entity('users')
 export class User {
   @PrimaryGeneratedColumn('uuid')
@@ -43,6 +45,9 @@ export class User {
  @Column('simple-array', { nullable: true })
   allergies: string[];
 
+  @Column({ default: false })
+  is_premium: boolean;
+
   @OneToMany(() => MealPlan, (mealPlan) => mealPlan.user)
   meal_plans: MealPlan[];
   
@@ -51,4 +56,7 @@ export class User {
 
   @OneToMany(() => Conversation, (conversation) => conversation.user)
   conversations: Conversation[];
+  
+  @OneToMany(() => PaymentTransaction, (payment) => payment.user)
+  paymentTransactions: PaymentTransaction[];
 }
