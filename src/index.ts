@@ -36,6 +36,7 @@ async function startApp() {
 
   } catch (error) {
     logger.error("Error during Data Source initialization:", error);
+    console.error("Error during Data Source initialization:", error);
   }
 }
 
