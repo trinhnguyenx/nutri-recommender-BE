@@ -14,7 +14,7 @@ import { Conversation } from "../model/conversation.entity";
 import { Message } from "../model/message.entity";
 import { PaymentTransaction } from "../model/payment.entity";
 import { UserProgress } from "../model/user.progress.entity";
-
+import { MealPlanCalorieSummary } from "../model/mealplan.calories.summary";
 config({ path: resolve(__dirname, "../../.env") });
 export default new DataSource({
   type: "mysql",
@@ -23,7 +23,7 @@ export default new DataSource({
   username: process.env.DB_USERNAME,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_DATABASE,
-  entities: [User, Meal, MealPlan, MealPlanDay, MealPlanMeal, CalculationResult, Conversation, Message, PaymentTransaction, UserProgress],
+  entities: [User, Meal, MealPlan, MealPlanDay, MealPlanCalorieSummary, MealPlanMeal, CalculationResult, Conversation, Message, PaymentTransaction, UserProgress],
   logging: true,
   migrationsTableName: "migrations",
   migrations: [join(__dirname, "../../src/migrations/**/*.ts")],

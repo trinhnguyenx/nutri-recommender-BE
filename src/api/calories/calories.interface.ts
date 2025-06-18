@@ -23,6 +23,7 @@ interface CalculateCaloriesParams {
   is_active: boolean;
   createdAt: string; 
   bmr: number
+
 }
 
 interface MealRecommendation {
@@ -99,6 +100,29 @@ interface NutritionSummary {
 interface UpdateMealPlanNameParams {
   mealPlanId: string;
   newName: string;
+}
+
+export interface MealPlanCalorieSummaryResponse {
+  day_number: number;
+  goal: string;
+  breakfast_calories: number;
+  lunch_calories: number;
+  dinner_calories: number;
+  snack1_calories: number;
+  snack2_calories: number;
+  snack3_calories: number;
+  total_daily_calories: number;
+  created_at: string;
+}
+
+export interface CalorieSummaryByDay {
+  [day: number]: MealPlanCalorieSummaryResponse;
+}
+
+export interface CalorieStatsResponse {
+  userId: string;
+  mealPlanId: string;
+  summaries: CalorieSummaryByDay;
 }
 
 export type { CalculateCaloriesParams, CalorieResult, MealRecommendation, 

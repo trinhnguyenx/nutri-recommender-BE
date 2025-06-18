@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { calculateCaloriesAndRecommend, getMealPlanDetails, getUserMealPlans, getCalculationResult, getSuggestedMeals, swapMealInPlan, updateMealPlanName } from "./calories.service";
+import { calculateCaloriesAndRecommend, getMealPlanDetails, getUserMealPlans, getCalculationResult, getSuggestedMeals, swapMealInPlan, updateMealPlanName, summarizeMealPlanCalories } from "./calories.service";
 
 export const calculateCaloriesUser = async (req: Request, res: Response) => {
   try {
@@ -161,5 +161,29 @@ export const updateMealPlanNameController = async (req: Request, res: Response) 
     res.status(200).json({ message: "Cập nhật tên kế hoạch bữa ăn thành công" });
   } catch (error: any) {
     res.status(500).json({ message: error.message || "Lỗi khi cập nhật tên kế hoạch bữa ăn" });
+  }
+};
+
+export const getStatisticsByDayController = async (req: Request, res: Response) => {
+  try {
+    const userId = req.body?.userId || req.query?.userId;
+    console.log("User ID:", userId);
+
+    if (!userId || typeof userId !== "string") {
+      return res.status(400).json({ message: "Missing or invalid userId parameter" });
+    }
+    const statistics = await summarizeMealPlanCalories(userId);
+
+    return res.status(200).json({
+      message: "Successfully generated daily meal plan summary",
+      data: statistics,
+    });
+
+  } catch (error: any) {
+    console.error("Error in getStatisticsByDayController:", error);
+
+    return res.status(500).json({
+      message: error.message || "Failed to retrieve meal plan statistics",
+    });
   }
 };

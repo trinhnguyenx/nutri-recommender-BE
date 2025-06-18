@@ -1,10 +1,13 @@
 import { Router } from "express";
-import { calculateCaloriesUser, getMealPlanDetailsController, getUserMealPlansController, getCalculationResultController, getSuggestedMealsForSwap, updateMealInPlan, updateMealPlanNameController } from "./calories.controller";
+import { calculateCaloriesUser, getMealPlanDetailsController, getUserMealPlansController, getCalculationResultController, getSuggestedMealsForSwap, updateMealInPlan, updateMealPlanNameController, getStatisticsByDayController } from "./calories.controller";
 const CaloriesRouter = Router();
 
 CaloriesRouter.post("/calculate", calculateCaloriesUser);
 CaloriesRouter.get("/meal-plans/:userId",getUserMealPlansController);
 CaloriesRouter.get("/meal-menu/:mealPlanId", getMealPlanDetailsController);
+CaloriesRouter.get("/statistics/daily", (req, res, next) => {
+  Promise.resolve(getStatisticsByDayController(req, res)).catch(next);
+});
 CaloriesRouter.get("/calculation-result", (req, res, next) => {
   Promise.resolve(getCalculationResultController(req, res)).catch(next);
 });

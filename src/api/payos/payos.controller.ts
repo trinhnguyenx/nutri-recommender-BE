@@ -13,7 +13,7 @@ export const createPayment = async (req: Request, res: Response) => {
   }
 };
 
-export const RecievePaymentStatus = async (req: Request, res: Response) => {
+export const ReceivePaymentStatus = async (req: Request, res: Response) => {
   try {
     const data = req.body;
     const paymentLinkId = data?.data?.paymentLinkId;

@@ -28,7 +28,7 @@ export const conversationRepository = dataSource.getRepository(Conversation).ext
     return this.find({
       where: { user: { id: userId } },
       relations: ['messages'],
-      order: { started_at: 'DESC' },
+      order: { startedAt: 'DESC' },
     });
   },
 });

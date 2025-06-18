@@ -2,6 +2,7 @@ import { Column, Entity, PrimaryGeneratedColumn, ManyToOne, OneToMany } from 'ty
 import { User } from './users.entity';
 import { MealPlanDay } from './mealplanday.entity';
 import { CalculationResult } from './caculation.result';
+import { MealPlanCalorieSummary } from './mealplan.calories.summary';
 
 @Entity('meal_plans')
 export class MealPlan {
@@ -13,6 +14,9 @@ export class MealPlan {
 
   @Column('date')
   start_date: Date;
+
+  @Column('date')
+  end_date: Date;
 
   @Column({ default: true })
   is_active: boolean;
@@ -32,6 +36,9 @@ export class MealPlan {
   @Column({ nullable: true })
   estimatedDaysToGoal: number; // e.g., days to reach goal
 
+  @Column({ default: false })
+  is_completed: boolean;
+
   @ManyToOne(() => User, (user) => user.meal_plans)
   user: User;
 
@@ -40,5 +47,8 @@ export class MealPlan {
 
   @ManyToOne(() => CalculationResult, { nullable: true, onDelete: 'SET NULL' })
   calculationResult: CalculationResult;
+
+   @OneToMany(() => MealPlanCalorieSummary, (calorieSummary) => calorieSummary.meal_plan)
+  calorieSummaries: MealPlanCalorieSummary[];
 
 }

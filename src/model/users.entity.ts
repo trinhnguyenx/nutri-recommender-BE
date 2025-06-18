@@ -4,6 +4,8 @@ import { CalculationResult } from './caculation.result';
 import { Conversation } from './conversation.entity';
 import {PaymentTransaction} from './payment.entity';
 import { UserProgress } from './user.progress.entity';
+import { MealPlanCalorieSummary } from './mealplan.calories.summary';
+
 @Entity('users')
 export class User {
   @PrimaryGeneratedColumn('uuid')
@@ -48,6 +50,9 @@ export class User {
   @Column({ default: false })
   is_premium: boolean;
 
+  @Column('int', { default: 0 })
+  meal_plan_count: number;
+
   @OneToMany(() => MealPlan, (mealPlan) => mealPlan.user)
   meal_plans: MealPlan[];
   
@@ -62,6 +67,9 @@ export class User {
 
   @OneToMany(() => UserProgress, (progress) => progress.user)
   progress: UserProgress[];
+
+  @OneToMany(() => MealPlanCalorieSummary, (calorieSummary) => calorieSummary.user, { cascade: true })
+  calorieSummaries: MealPlanCalorieSummary[];
 
 
 }

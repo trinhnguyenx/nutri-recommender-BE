@@ -6,7 +6,8 @@ import { MealPlanMeal } from "../../model/mealplanmeals.entity";
 import { CalculationResult } from "../../model/caculation.result";
 import { userRepository } from "../../repository/userRepository";
 import {MealPlanSummary, GetSuggestedMealsParams } from "./calories.interface";
-import { CalorieResult,ExtendedCalculateCaloriesParams, MealPlanResponse, MealPlanEntry, NutritionSummary, UpdateMealPlanNameParams} from "./calories.interface";
+import { CalorieResult,ExtendedCalculateCaloriesParams, MealPlanResponse, MealPlanEntry, NutritionSummary, UpdateMealPlanNameParams, CalorieSummaryByDay} from "./calories.interface";
+import { MealPlanCalorieSummary } from "@/model/mealplan.calories.summary";
 
 interface ExtendedCalorieResult extends CalorieResult {
   mealPlan: { [day: number]: MealPlanResponse };
@@ -612,7 +613,8 @@ const generate7DayMealPlan = (
   meals: Meals[],
   allergies: string[],
   calorieTargets: { [key in keyof MealPlanResponse]: number },
-  goal: "gain" | "loss" | "maintenance"
+  goal: "gain" | "loss" | "maintenance",
+  startDay: number
 ): { mealPlan: { [day: number]: MealPlanResponse }; totalCalories: { [day: number]: number }; totalNutrition: { [day: number]: NutritionSummary }; weeklyTotalCalories: number } => {
   if (!meals || meals.length === 0) {
     throw new Error("Empty meal list");
@@ -650,7 +652,8 @@ const generate7DayMealPlan = (
     console.warn("No carb meals available");
   }
 
-  for (let day = 1; day <= 7; day++) {
+  for (let i = 0; i < 7; i++) {
+    const day = startDay + i;
     mealPlan[day] = {};
     totalCalories[day] = 0;
     totalNutrition[day] = { protein: 0, fat: 0, carbs: 0 };
@@ -750,6 +753,7 @@ const createMealPlan = async (user: any, calculationResult: CalculationResult, P
   mealPlan.calculationResult = calculationResult;
   mealPlan.name = PlanName;
   mealPlan.start_date = new Date();
+  mealPlan.end_date = new Date(new Date().setDate(new Date().getDate() + 7));
   mealPlan.is_active = true;
   mealPlan.maintenanceCalories = calculationResult.maintenanceCalories;
   mealPlan.targetCalories = calculationResult.targetCalories;
@@ -760,12 +764,12 @@ const createMealPlan = async (user: any, calculationResult: CalculationResult, P
 };
 
 // Create meal plan days
-const createMealPlanDays = async (plan: MealPlan): Promise<MealPlanDay[]> => {
+const createMealPlanDays = async (plan: MealPlan, startDay: number): Promise<MealPlanDay[]> => {
   const days: MealPlanDay[] = [];
   for (let i = 0; i < 7; i++) {
     const mealPlanDay = new MealPlanDay();
     mealPlanDay.meal_plan = plan;
-    mealPlanDay.day_number = i + 1;
+    mealPlanDay.day_number = startDay + i;
     days.push(await mealRepository.createMealPlanDayAsync(mealPlanDay));
   }
   return days;
@@ -774,10 +778,13 @@ const createMealPlanDays = async (plan: MealPlan): Promise<MealPlanDay[]> => {
 // Link meals to plan days
 const linkMealsToPlanDays = async (
   mealPlan: { [day: number]: MealPlanResponse },
-  mealPlanDays: MealPlanDay[]
+  mealPlanDays: MealPlanDay[],
+  startDay: number
 ) => {
-  for (let day = 1; day <= 7; day++) {
-    const planDay = mealPlanDays[day - 1];
+  for (let i = 0; i < 7; i++) {
+    const day = startDay + i;
+    const planDay = mealPlanDays[i];
+    if (!mealPlan[day]) continue;
     for (const time of Object.keys(mealPlan[day]) as (keyof MealPlanResponse)[]) {
       const meals = mealPlan[day][time] as MealPlanEntry[];
       for (const mealInfo of meals) {
@@ -820,6 +827,15 @@ export const calculateCaloriesAndRecommend = async ({
   validateInputs({
     height, weight, age, gender, weightTarget, userId, allergies, weeklyGainRate,activityLevel, planName});
 
+  const user = await userRepository.findByIdAsync(userId);
+  if (!user) {
+    throw new Error("User not found");
+  }
+
+  if (user.meal_plan_count <= 0) {
+    throw new Error("Bạn đã hết lần tạo thực đơn.");
+  }
+
   const bmr = calculateBMR({ height, weight, age, gender });
   const activityMultiplier = getActivityMultiplier(activityLevel);
   const tdee = bmr * activityMultiplier;
@@ -831,6 +847,21 @@ export const calculateCaloriesAndRecommend = async ({
     weightDifference !== 0 && weeklyGainRate > 0
       ? Math.ceil((Math.abs(weightDifference) / weeklyGainRate) * 7)
       : 0;
+      
+  const maxDayNumberResult = await mealRepository.manager.createQueryBuilder(MealPlanDay, "mpd")
+    .leftJoin("mpd.meal_plan", "mp")
+    .where("mp.user.id = :userId", { userId })
+    .select("MAX(mpd.day_number)", "max_day")
+    .getRawOne();
+
+  const startDay = (maxDayNumberResult && maxDayNumberResult.max_day) ? maxDayNumberResult.max_day + 1 : 1;
+  
+  const maxMealPlansInGoal = estimatedDaysToGoal > 0 ? Math.floor(estimatedDaysToGoal / 7) : 0;
+  const currentPlanWeek = Math.floor((startDay - 1) / 7);
+
+  if (maxMealPlansInGoal > 0 && currentPlanWeek >= maxMealPlansInGoal) {
+      throw new Error("Bạn đã tạo tối đa số thực đơn cho mục tiêu này.");
+  }
 
   const calorieResult: CalorieResult = {
     maintenanceCalories: Math.round(tdee),
@@ -884,7 +915,8 @@ export const calculateCaloriesAndRecommend = async ({
     meals,
     allergies,
     calorieTargets,
-    calorieResult.goal
+    calorieResult.goal,
+    startDay
   );
 
   const mealPlanEntity = await createMealPlan(currentUser, savedCalculationResult, planName);
@@ -895,17 +927,23 @@ export const calculateCaloriesAndRecommend = async ({
   mealPlanEntity.estimatedDaysToGoal = calorieResult.estimatedDaysToGoal;
   await mealRepository.createMealPlanAsync(mealPlanEntity);
 
-  const mealPlanDays = await createMealPlanDays(mealPlanEntity);
-  await linkMealsToPlanDays(mealPlan, mealPlanDays);
+  const mealPlanDays = await createMealPlanDays(mealPlanEntity, startDay);
 
-  return {
-    ...calorieResult,
+  await linkMealsToPlanDays(mealPlan, mealPlanDays, startDay);
+
+  user.meal_plan_count -= 1;
+  await userRepository.save(user);
+
+  const extendedResult: ExtendedCalorieResult = {
     mealPlan,
     totalCalories,
     totalNutrition,
     weeklyTotalCalories,
     mealPlanId: mealPlanEntity.id,
+    ...calorieResult,
   };
+
+  return extendedResult;
 };
 
 // Fetch user meal plans
@@ -1165,10 +1203,103 @@ export const updateMealPlanName = async ({ mealPlanId, newName }: UpdateMealPlan
   await mealPlanRepository.save(mealPlan);
 };
 
+const summarizeMealPlanCalories = async (userId: string): Promise<CalorieSummaryByDay> => {
+  const mealPlanRepository = mealRepository.manager.getRepository(MealPlan);
+  const calorieSummaryRepository = mealRepository.manager.getRepository(MealPlanCalorieSummary);
+
+  // Tìm meal plan đang hoạt động
+  const mealPlan = await mealPlanRepository.findOne({
+    where: { user: { id: userId }, is_active: true },
+    relations: ["user"]
+  });
+
+  if (!mealPlan) {
+    throw new Error("Không tìm thấy kế hoạch bữa ăn đang hoạt động cho người dùng");
+  }
+
+  const mealPlanDetails = await getMealPlanDetails(mealPlan.id);
+  const goal = mealPlan.goal || "maintenance";
+
+  const calorieSummaryByDay: CalorieSummaryByDay = {};
+
+  for (const day of mealPlanDetails) {
+    const summary = new MealPlanCalorieSummary();
+    summary.meal_plan = mealPlan;
+    summary.user = mealPlan.user;
+    summary.day_number = day.day_number;
+    summary.goal = goal;
+
+    summary.breakfast_calories = 0;
+    summary.lunch_calories = 0;
+    summary.dinner_calories = 0;
+    summary.snack1_calories = 0;
+    summary.snack2_calories = 0;
+    summary.snack3_calories = 0;
+    summary.total_daily_calories = 0;
+
+    for (const meal of day.meals) {
+      const calories = meal.meal.calories;
+      const mealTime = meal.meal_time;
+
+      switch (mealTime) {
+        case "breakfast":
+          summary.breakfast_calories += calories;
+          break;
+        case "lunch":
+          summary.lunch_calories += calories;
+          break;
+        case "dinner":
+          summary.dinner_calories += calories;
+          break;
+        case "snack1":
+          if (goal === "gain") summary.snack1_calories += calories;
+          break;
+        case "snack2":
+          summary.snack2_calories += calories; // Dùng cho cả goal khác
+          break;
+        case "snack3":
+          if (goal === "gain") summary.snack3_calories += calories;
+          break;
+      }
+    }
+
+    // Tính tổng calo
+    summary.total_daily_calories =
+      summary.breakfast_calories +
+      summary.lunch_calories +
+      summary.dinner_calories +
+      summary.snack2_calories;
+
+    if (goal === "gain") {
+      summary.total_daily_calories += summary.snack1_calories + summary.snack3_calories;
+    }
+
+    // Lưu vào DB
+    await calorieSummaryRepository.save(summary);
+
+    // Gán vào object trả về
+    calorieSummaryByDay[day.day_number] = {
+      day_number: summary.day_number,
+      goal: summary.goal,
+      breakfast_calories: summary.breakfast_calories,
+      lunch_calories: summary.lunch_calories,
+      dinner_calories: summary.dinner_calories,
+      snack1_calories: summary.snack1_calories,
+      snack2_calories: summary.snack2_calories,
+      snack3_calories: summary.snack3_calories,
+      total_daily_calories: summary.total_daily_calories,
+      created_at: summary.created_at?.toISOString(),
+    };
+  }
+
+  return calorieSummaryByDay;
+};
+
 export {
   ExtendedCalculateCaloriesParams,
   getUserMealPlans,
   getMealPlanDetails,
   getCalculationResult,
   getSuggestedMeals,
+  summarizeMealPlanCalories
 };
