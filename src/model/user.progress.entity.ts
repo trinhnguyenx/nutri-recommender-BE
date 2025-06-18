@@ -12,8 +12,8 @@ export class UserProgress {
   @Column('float')
   weight: number;
 
-  @Column('float')
-  caloriesConsumed: number;
+  // @Column('float')
+  // caloriesConsumed: number;
 
   @CreateDateColumn()
   recordedAt: Date;

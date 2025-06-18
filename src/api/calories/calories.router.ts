@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { calculateCaloriesUser, getMealPlanDetailsController, getUserMealPlansController, getCalculationResultController, getSuggestedMealsForSwap, updateMealInPlan, updateMealPlanNameController, getStatisticsByDayController } from "./calories.controller";
+import { calculateCaloriesUser, getMealPlanDetailsController, getUserMealPlansController, getCalculationResultController, getSuggestedMealsForSwap, updateMealInPlan, updateMealPlanNameController, getStatisticsByDayController, recordUserProgressController, getUserProgressController } from "./calories.controller";
 const CaloriesRouter = Router();
 
 CaloriesRouter.post("/calculate", calculateCaloriesUser);
@@ -20,6 +20,14 @@ CaloriesRouter.put("/update/new-meal", (req, res, next) => {
 // Endpoint to update the name of a meal plan
 CaloriesRouter.put("/update/meal-plan-name", (req, res, next) => {
   Promise.resolve(updateMealPlanNameController(req, res)).catch(next);
+});
+// Endpoint to record user progress
+CaloriesRouter.post("/progress/record", (req, res, next) => {
+  Promise.resolve(recordUserProgressController(req, res)).catch(next);
+});
+// Endpoint to get user progress
+CaloriesRouter.get("/progress/:userId", (req, res, next) => {
+  Promise.resolve(getUserProgressController(req, res)).catch(next);
 });
 
 

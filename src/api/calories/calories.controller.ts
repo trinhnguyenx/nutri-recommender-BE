@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { calculateCaloriesAndRecommend, getMealPlanDetails, getUserMealPlans, getCalculationResult, getSuggestedMeals, swapMealInPlan, updateMealPlanName, summarizeMealPlanCalories } from "./calories.service";
+import { calculateCaloriesAndRecommend, getMealPlanDetails, getUserMealPlans, getCalculationResult, getSuggestedMeals, swapMealInPlan, updateMealPlanName, summarizeMealPlanCalories, recordUserProgress, getUserProgress } from "./calories.service";
 
 export const calculateCaloriesUser = async (req: Request, res: Response) => {
   try {
@@ -184,6 +184,51 @@ export const getStatisticsByDayController = async (req: Request, res: Response) 
 
     return res.status(500).json({
       message: error.message || "Failed to retrieve meal plan statistics",
+    });
+  }
+};
+
+export const recordUserProgressController = async (req: Request, res: Response) => {
+  try {
+    const { userId, weight } = req.body;
+
+    if (!userId || !weight  === undefined) {
+      return res.status(400).json({ message: "Missing required parameters" });
+    }
+
+    const result = await recordUserProgress({ 
+      userId, 
+      weight: parseFloat(weight)
+    });
+
+    res.status(201).json({
+      message: "Successfully recorded user progress",
+      data: result,
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      message: error.message || "Failed to record user progress",
+    });
+  }
+};
+
+export const getUserProgressController = async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params;
+
+    if (!userId) {
+      return res.status(400).json({ message: "Missing userId parameter" });
+    }
+
+    const result = await getUserProgress(userId);
+
+    res.status(200).json({
+      message: "Successfully retrieved user progress",
+      data: result,
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      message: error.message || "Failed to retrieve user progress",
     });
   }
 };

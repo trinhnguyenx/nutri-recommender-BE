@@ -8,6 +8,7 @@ import { userRepository } from "../../repository/userRepository";
 import {MealPlanSummary, GetSuggestedMealsParams } from "./calories.interface";
 import { CalorieResult,ExtendedCalculateCaloriesParams, MealPlanResponse, MealPlanEntry, NutritionSummary, UpdateMealPlanNameParams, CalorieSummaryByDay} from "./calories.interface";
 import { MealPlanCalorieSummary } from "@/model/mealplan.calories.summary";
+import { UserProgress } from "@/model/user.progress.entity";
 
 interface ExtendedCalorieResult extends CalorieResult {
   mealPlan: { [day: number]: MealPlanResponse };
@@ -727,25 +728,6 @@ const generate7DayMealPlan = (
   return { mealPlan, totalCalories, totalNutrition, weeklyTotalCalories };
 };
 
-// Update user profile in database
-const updateUserProfile = async (params: ExtendedCalculateCaloriesParams) => {
-  const user = await userRepository.findByIdAsync(params.userId);
-  if (!user) {
-    throw new Error("User not found");
-  }
-  Object.assign(user, {
-    height: params.height,
-    weight: params.weight,
-    age: params.age,
-    gender: params.gender,
-    weightTarget: params.weightTarget,
-    activityLevel: params.activityLevel ?? "moderate",
-    allergies: params.allergies,
-  });
-
-  return userRepository.save(user);
-};
-
 // Create meal plan entity
 const createMealPlan = async (user: any, calculationResult: CalculationResult, PlanName: string): Promise<MealPlan> => {
   const mealPlan = new MealPlan();
@@ -879,20 +861,19 @@ export const calculateCaloriesAndRecommend = async ({
     createdAt: new Date().toISOString(),
   };
 
-  const currentUser = await updateUserProfile({
-    userId,
+  // Update user profile directly
+  Object.assign(user, {
     height,
     weight,
     age,
     gender,
     weightTarget,
-    activityLevel,
+    activityLevel: activityLevel ?? "moderate",
     allergies,
-    weeklyGainRate,
   });
 
  const savedCalculationResult = await mealRepository.createCalculationResultAsync(
-    currentUser,
+    user,
     calorieResult
   );
   const rawMeals = await mealRepository.findAllAsync();
@@ -919,7 +900,7 @@ export const calculateCaloriesAndRecommend = async ({
     startDay
   );
 
-  const mealPlanEntity = await createMealPlan(currentUser, savedCalculationResult, planName);
+  const mealPlanEntity = await createMealPlan(user, savedCalculationResult, planName);
   mealPlanEntity.maintenanceCalories = calorieResult.maintenanceCalories;
   mealPlanEntity.targetCalories = calorieResult.targetCalories;
   mealPlanEntity.goal = calorieResult.goal;
@@ -932,7 +913,7 @@ export const calculateCaloriesAndRecommend = async ({
   await linkMealsToPlanDays(mealPlan, mealPlanDays, startDay);
 
   user.meal_plan_count -= 1;
-  await userRepository.save(user);
+  await userRepository.save(user); // Save all user changes at once
 
   const extendedResult: ExtendedCalorieResult = {
     mealPlan,
@@ -1293,6 +1274,60 @@ const summarizeMealPlanCalories = async (userId: string): Promise<CalorieSummary
   }
 
   return calorieSummaryByDay;
+};
+
+// Interface for recording progress
+export interface RecordProgressParams {
+  userId: string;
+  weight: number;
+}
+
+/**
+ * Records a new weight and calorie consumption entry for a user.
+ * @param params - The parameters for recording progress.
+ * @returns The newly created UserProgress entry.
+ */
+export const recordUserProgress = async (params: RecordProgressParams): Promise<UserProgress> => {
+  const { userId, weight } = params;
+
+  const user = await userRepository.findByIdAsync(userId);
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+
+  const progressRepository = mealRepository.manager.getRepository(UserProgress);
+
+  const newProgress = progressRepository.create({
+    user,
+    weight,
+  });
+
+  return progressRepository.save(newProgress);
+};
+
+/**
+ * Retrieves the weight progress for a user, along with their weight target.
+ * @param userId - The ID of the user.
+ * @returns An object containing the user's progress entries and their weight target.
+ */
+export const getUserProgress = async (userId: string): Promise<{ progress: UserProgress[], weightTarget: number }> => {
+  const user = await userRepository.findByIdAsync(userId);
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  const progressRepository = mealRepository.manager.getRepository(UserProgress);
+
+  const progress = await progressRepository.find({
+    where: { user: { id: userId } },
+    order: { recordedAt: 'ASC' },
+  });
+
+  return {
+    progress,
+    weightTarget: user.weightTarget,
+  };
 };
 
 export {
