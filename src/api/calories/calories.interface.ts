@@ -9,12 +9,20 @@ interface CalculateCaloriesParams {
     userId?: string;
 }
 
-interface CalorieResult {
-    maintenanceCalories: number;
-    targetCalories: number;
-    goal: string;
-    estimatedWeeklyChange: number;
-    estimatedDaysToGoal: number;
+ interface CalorieResult {
+  age: number;
+  height: number;
+  weight: number;
+  gender: string;
+  activityLevel: string;
+  maintenanceCalories: number;
+  targetCalories: number;
+  goal: "gain" | "loss" | "maintenance";
+  estimatedWeeklyChange: number;
+  estimatedDaysToGoal: number;
+  is_active: boolean;
+  createdAt: string; 
+  bmr: number
 }
 
 interface MealRecommendation {
@@ -25,13 +33,22 @@ interface MealRecommendation {
   fat: number;
   carbs: number;
   ingredients: string;
+  meal_type: string;
 }
 
+interface MealPlanError {
+  error: string;
+}
+
+type MealPlanEntry = MealRecommendation | MealPlanError;
+
 interface MealPlanResponse {
-  breakfast: MealRecommendation | { error: string };
-  lunch: MealRecommendation | { error: string };
-  dinner: MealRecommendation | { error: string };
-  dessert: MealRecommendation | { error: string };
+  breakfast?: MealPlanEntry[];
+  snack1?: MealPlanEntry[];
+  lunch?: MealPlanEntry[];
+  snack2?: MealPlanEntry[];
+  dinner?: MealPlanEntry[];
+  snack3?: MealPlanEntry[];
 }
 
 interface ExtendedCalorieResult extends CalorieResult {
@@ -40,16 +57,29 @@ interface ExtendedCalorieResult extends CalorieResult {
   mealPlanId: string;
 }
 
-interface ExtendedCalculateCaloriesParams extends CalculateCaloriesParams {
+interface ExtendedCalculateCaloriesParams {
+  height: number;
+  weight: number;
+  age: number;
+  gender: string;
+  weightTarget: number;
+  activityLevel: string;
   userId: string;
+  weeklyGainRate: number;
   allergies: string[];
+  planName?: string;
 }
-
-interface MealPlanSummary {
+ interface MealPlanSummary {
   id: string;
   name: string;
   start_date: Date;
   is_active: boolean;
+  maintenanceCalories: number;
+  targetCalories: number;
+  goal: string;
+  estimatedWeeklyChange: number | null;
+  estimatedDaysToGoal: number | null;
+  calculation_id: string | null;
 }
 
 interface GetSuggestedMealsParams {
@@ -59,6 +89,18 @@ interface GetSuggestedMealsParams {
   allergies?: string[];
 }
 
+
+interface NutritionSummary {
+  protein: number;
+  fat: number;
+  carbs: number;
+}
+
+interface UpdateMealPlanNameParams {
+  mealPlanId: string;
+  newName: string;
+}
+
 export type { CalculateCaloriesParams, CalorieResult, MealRecommendation, 
   MealPlanResponse, ExtendedCalorieResult, ExtendedCalculateCaloriesParams, 
-  MealPlanSummary, GetSuggestedMealsParams };
+  MealPlanSummary, GetSuggestedMealsParams, MealPlanEntry, NutritionSummary, UpdateMealPlanNameParams };

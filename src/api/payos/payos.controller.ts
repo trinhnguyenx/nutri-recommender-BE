@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { createPaymentService, handlePaymentSuccess } from './payos.service';
+import { log } from 'console';
 
 export const createPayment = async (req: Request, res: Response) => {
   try {
@@ -16,16 +17,15 @@ export const RecievePaymentStatus = async (req: Request, res: Response) => {
   try {
     const data = req.body;
     const paymentLinkId = data?.data?.paymentLinkId;
-    const amount = data?.data?.amount;
-    const description = data?.data?.description;
-    if (!paymentLinkId || !amount || !description) {
+    if (!paymentLinkId) {
       return res.status(400).json({ message: 'Thiếu thông tin cần thiết' });
     }
     console.log('Nhận trạng thái thanh toán:', data);
     // Kiểm tra mã code thanh toán thành công
     if (data?.code === '00') {
       const orderCode = data.data.orderCode;
-      await handlePaymentSuccess(orderCode, amount, paymentLinkId, description);
+      console.log('Thanh toán thành công cho orderCode:', orderCode);
+      await handlePaymentSuccess(orderCode,paymentLinkId);
     }
 
     res.status(200).json({ message: 'Đã xử lý webhook' });

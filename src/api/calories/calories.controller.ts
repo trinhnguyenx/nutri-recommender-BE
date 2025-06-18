@@ -1,11 +1,11 @@
 import { Request, Response } from "express";
-import { calculateCaloriesAndRecommend, getMealPlanDetails, getUserMealPlans, getCalculationResult, getSuggestedMeals, swapMealInPlan } from "./calories.service";
+import { calculateCaloriesAndRecommend, getMealPlanDetails, getUserMealPlans, getCalculationResult, getSuggestedMeals, swapMealInPlan, updateMealPlanName } from "./calories.service";
 
 export const calculateCaloriesUser = async (req: Request, res: Response) => {
   try {
-    const { height, weight, age, gender, weightTarget, activityLevel, userId, allergies, weeklyGainRate } = req.body;
+    const { height, weight, age, gender, weightTarget, activityLevel, userId, allergies, weeklyGainRate, planName } = req.body;
 
-    if (!height || !weight || !age || !gender || !weightTarget || !userId || !allergies || !weeklyGainRate) {
+    if (!height || !weight || !age || !gender || !weightTarget || !userId || !allergies || !weeklyGainRate || !planName) {
       throw new Error("Missing required parameters");
     }
 
@@ -19,6 +19,7 @@ export const calculateCaloriesUser = async (req: Request, res: Response) => {
       userId,
       allergies,
       weeklyGainRate: parseFloat(weeklyGainRate),
+      planName: planName || "Default Meal Plan",
     };
 
     const result = await calculateCaloriesAndRecommend(params);
@@ -73,18 +74,24 @@ export const getMealPlanDetailsController = async (req: Request, res: Response) 
 
 export const getCalculationResultController = async (req: Request, res: Response) => {
   try {
-    const { userId } = req.params;
-    if (!userId) {
-      throw new Error("Missing userId parameter");
+    const { userId, mealPlanId } = req.query;
+
+    if (!userId || !mealPlanId) {
+      return res.status(400).json({ message: "Missing userId or mealPlanId" });
     }
 
-    const calculationResult = await getCalculationResult(userId);
-    res.status(200).json({
+    const result = await getCalculationResult(String(userId), String(mealPlanId));
+
+    if (!result) {
+      return res.status(404).json({ message: "Calculation result not found" });
+    }
+
+    return res.status(200).json({
       message: "Successfully retrieved calculation result",
-      data: calculationResult,
+      data: result,
     });
   } catch (error: any) {
-    res.status(400).json({
+    return res.status(500).json({
       message: error.message || "Failed to retrieve calculation result",
     });
   }
@@ -139,4 +146,20 @@ export const updateMealInPlan = async (req: Request, res: Response) => {
   }
 };
 
+//update Name Meal Plan
 
+export const updateMealPlanNameController = async (req: Request, res: Response) => {
+  try {
+    const { mealPlanId, newName } = req.body;
+
+    if (!mealPlanId || !newName) {
+      return res.status(400).json({ message: "Thiếu thông tin cần thiết" });
+    }
+
+    await updateMealPlanName({ mealPlanId, newName });
+
+    res.status(200).json({ message: "Cập nhật tên kế hoạch bữa ăn thành công" });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message || "Lỗi khi cập nhật tên kế hoạch bữa ăn" });
+  }
+};

@@ -3,7 +3,7 @@ import { MealPlan } from './mealplan.entity';
 import { CalculationResult } from './caculation.result';
 import { Conversation } from './conversation.entity';
 import {PaymentTransaction} from './payment.entity';
-
+import { UserProgress } from './user.progress.entity';
 @Entity('users')
 export class User {
   @PrimaryGeneratedColumn('uuid')
@@ -56,7 +56,12 @@ export class User {
 
   @OneToMany(() => Conversation, (conversation) => conversation.user)
   conversations: Conversation[];
-  
+
   @OneToMany(() => PaymentTransaction, (payment) => payment.user)
   paymentTransactions: PaymentTransaction[];
+
+  @OneToMany(() => UserProgress, (progress) => progress.user)
+  progress: UserProgress[];
+
+
 }

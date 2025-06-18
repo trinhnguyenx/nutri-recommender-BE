@@ -1,8 +1,10 @@
 import { Router } from 'express';
-import { createPayment } from './payos.controller';
+import { createPayment, RecievePaymentStatus } from './payos.controller';
 
-const router = Router();
+const payos = Router();
 
-router.post('/create-payment', createPayment);
-
-export default router;
+payos.post('/create-payment', createPayment);
+payos.post("/webhook", (req, res, next) => {
+  Promise.resolve(RecievePaymentStatus(req, res)).catch(next);
+});
+export default payos;

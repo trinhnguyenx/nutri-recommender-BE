@@ -1,6 +1,7 @@
 import { Column, Entity, PrimaryGeneratedColumn, ManyToOne, OneToMany } from 'typeorm';
 import { User } from './users.entity';
 import { MealPlanDay } from './mealplanday.entity';
+import { CalculationResult } from './caculation.result';
 
 @Entity('meal_plans')
 export class MealPlan {
@@ -36,4 +37,8 @@ export class MealPlan {
 
   @OneToMany(() => MealPlanDay, (mealPlanDay) => mealPlanDay.meal_plan)
   meal_plan_days: MealPlanDay[];
+
+  @ManyToOne(() => CalculationResult, { nullable: true, onDelete: 'SET NULL' })
+  calculationResult: CalculationResult;
+
 }

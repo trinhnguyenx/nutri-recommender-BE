@@ -27,9 +27,24 @@ export const mealRepository = dataSource.getRepository(Meal).extend({
     return this.findByIdAsync(id);
   },
 
-  async createMealPlanAsync(mealPlan: MealPlan): Promise<MealPlan> {
+ async createMealPlanAsync(mealPlan: MealPlan): Promise<MealPlan> {
     const mealPlanRepository = dataSource.getRepository(MealPlan);
-    const newMealPlan = mealPlanRepository.create(mealPlan);
+
+    // Vô hiệu hóa các MealPlan cũ của user
+    if (mealPlan.user && mealPlan.user.id) {
+      await mealPlanRepository.update(
+        { user: { id: mealPlan.user.id }, is_active: true },
+        { is_active: false }
+      );
+    }
+
+    // Tạo MealPlan mới
+    const newMealPlan = mealPlanRepository.create({
+      ...mealPlan,
+      is_active: true, // Đảm bảo is_active là true
+    });
+
+    // Lưu và trả về
     return mealPlanRepository.save(newMealPlan);
   },
 
@@ -55,24 +70,33 @@ export const mealRepository = dataSource.getRepository(Meal).extend({
     return mealPlanMealRepository.save(newMealPlanMeal);
   },
 
- async createOrUpdateCalculationResultAsync(
-  user: User,
-  calorieResult: CalorieResult
-): Promise<CalculationResult> {
-  const repo = dataSource.getRepository(CalculationResult);
+async createCalculationResultAsync(
+    user: User,
+    calorieResult: CalorieResult
+  ): Promise<CalculationResult> {
+    const repo = dataSource.getRepository(CalculationResult);
 
-  const existing = await repo.findOne({
-    where: { user: { id: user.id } },
-    relations: ['user'],
-  });
+    await repo.update(
+      { user: { id: user.id }, is_active: true },
+      { is_active: false }
+    );
 
-  const newData = {
-    ...existing,
-    ...calorieResult,
-    user,
-  };
+    const newCalculationResult = repo.create({
+      age: calorieResult.age,
+      height: calorieResult.height,
+      weight: calorieResult.weight,
+      gender: calorieResult.gender,
+      activityLevel: calorieResult.activityLevel,
+      maintenanceCalories: calorieResult.maintenanceCalories,
+      targetCalories: calorieResult.targetCalories,
+      goal: calorieResult.goal,
+      estimatedWeeklyChange: calorieResult.estimatedWeeklyChange,
+      estimatedDaysToGoal: calorieResult.estimatedDaysToGoal,
+      is_active: true,
+      bmr: calorieResult.bmr,
+      user,
+    });
 
-  const entity = repo.create(newData);
-  return await repo.save(entity);
-}
+    return await repo.save(newCalculationResult);
+  },
 });

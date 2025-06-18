@@ -1,3 +1,4 @@
+import { User } from '@/model/users.entity';
 export interface CreatePaymentDto {
   amount: number;
   description: string;
@@ -6,4 +7,6 @@ export interface CreatePaymentDto {
   returnUrl: string;
   cancelUrl: string;
   orderCode: number;
+  user: User;
+
 }
