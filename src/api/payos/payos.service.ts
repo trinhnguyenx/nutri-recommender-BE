@@ -66,6 +66,7 @@ export const handlePaymentSuccess = async (orderCode: string, paymentLinkId: str
   const user = payment.user;
   if (!user.is_premium) {
     user.is_premium = true;
+    user.meal_plan_count = 10;
     await userRepository.saveUserAsync(user);
   }
 
