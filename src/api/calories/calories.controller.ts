@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { calculateCaloriesAndRecommend, getMealPlanDetails, getUserMealPlans, getCalculationResult, getSuggestedMeals, swapMealInPlan, updateMealPlanName, summarizeMealPlanCalories, recordUserProgress, getUserProgress } from "./calories.service";
+import { calculateCaloriesAndRecommend, getMealPlanDetails, getUserMealPlans, getCalculationResult, getSuggestedMeals, swapMealInPlan, updateMealPlanName, summarizeMealPlanCalories, recordUserProgress, getUserProgress, getLargestDayNumber } from "./calories.service";
 
 export const calculateCaloriesUser = async (req: Request, res: Response) => {
   try {
@@ -166,9 +166,8 @@ export const updateMealPlanNameController = async (req: Request, res: Response) 
 
 export const getStatisticsByDayController = async (req: Request, res: Response) => {
   try {
-    const userId = req.body?.userId || req.query?.userId;
-    console.log("User ID:", userId);
-
+  const userId = req.params.userId;
+    console.log("userId:", userId);
     if (!userId || typeof userId !== "string") {
       return res.status(400).json({ message: "Missing or invalid userId parameter" });
     }
@@ -229,6 +228,25 @@ export const getUserProgressController = async (req: Request, res: Response) => 
   } catch (error: any) {
     res.status(500).json({
       message: error.message || "Failed to retrieve user progress",
+    });
+  }
+};
+
+export const getLargestDayNumberController = async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params;
+    if (!userId) {
+      throw new Error("Missing userId parameter");
+    }
+
+    const result = await getLargestDayNumber(userId);
+    res.status(200).json({
+      message: "Successfully retrieved the largest day number",
+      data: result,
+    });
+  } catch (error: any) {
+    res.status(400).json({
+      message: error.message || "Failed to retrieve the largest day number",
     });
   }
 };

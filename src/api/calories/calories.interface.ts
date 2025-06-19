@@ -106,6 +106,7 @@ export interface MealPlanCalorieSummaryResponse {
   day_number: number;
   goal: string;
   breakfast_calories: number;
+  targetCalories: number;
   lunch_calories: number;
   dinner_calories: number;
   snack1_calories: number;

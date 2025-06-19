@@ -1,3 +1,4 @@
+import { generateAIResponse } from "../../utils/gemini.utils";
 import { mealRepository } from "../../repository/meal.Repository";
 import { Meal } from "../../model/meal.entity";
 import { MealPlan } from "../../model/mealplan.entity";
@@ -9,6 +10,7 @@ import {MealPlanSummary, GetSuggestedMealsParams } from "./calories.interface";
 import { CalorieResult,ExtendedCalculateCaloriesParams, MealPlanResponse, MealPlanEntry, NutritionSummary, UpdateMealPlanNameParams, CalorieSummaryByDay} from "./calories.interface";
 import { MealPlanCalorieSummary } from "@/model/mealplan.calories.summary";
 import { UserProgress } from "@/model/user.progress.entity";
+import { AIResponse } from "../chatbot/chatbot.interface";
 
 interface ExtendedCalorieResult extends CalorieResult {
   mealPlan: { [day: number]: MealPlanResponse };
@@ -1184,7 +1186,7 @@ export const updateMealPlanName = async ({ mealPlanId, newName }: UpdateMealPlan
   await mealPlanRepository.save(mealPlan);
 };
 
-const summarizeMealPlanCalories = async (userId: string): Promise<CalorieSummaryByDay> => {
+const summarizeMealPlanCalories = async (userId: string): Promise<{ calorieSummaryByDay: CalorieSummaryByDay, aiAssessment: AIResponse }> => {
   const mealPlanRepository = mealRepository.manager.getRepository(MealPlan);
   const calorieSummaryRepository = mealRepository.manager.getRepository(MealPlanCalorieSummary);
 
@@ -1202,6 +1204,9 @@ const summarizeMealPlanCalories = async (userId: string): Promise<CalorieSummary
   const goal = mealPlan.goal || "maintenance";
 
   const calorieSummaryByDay: CalorieSummaryByDay = {};
+  let totalWeeklyCalories = 0;
+  const dailyDataForAI: string[] = [];
+
 
   for (const day of mealPlanDetails) {
     const summary = new MealPlanCalorieSummary();
@@ -1254,12 +1259,14 @@ const summarizeMealPlanCalories = async (userId: string): Promise<CalorieSummary
     if (goal === "gain") {
       summary.total_daily_calories += summary.snack1_calories + summary.snack3_calories;
     }
-
+    totalWeeklyCalories += summary.total_daily_calories;
+    dailyDataForAI.push(`Ngày ${day.day_number}: ${summary.total_daily_calories.toFixed(0)} kcal`);
     // Lưu vào DB
     await calorieSummaryRepository.save(summary);
 
     // Gán vào object trả về
     calorieSummaryByDay[day.day_number] = {
+      targetCalories: mealPlan.targetCalories,
       day_number: summary.day_number,
       goal: summary.goal,
       breakfast_calories: summary.breakfast_calories,
@@ -1272,8 +1279,44 @@ const summarizeMealPlanCalories = async (userId: string): Promise<CalorieSummary
       created_at: summary.created_at?.toISOString(),
     };
   }
+  const averageDailyCalories = totalWeeklyCalories / mealPlanDetails.length;
 
-  return calorieSummaryByDay;
+  const prompt = `Bạn là một chuyên gia dinh dưỡng và huấn luyện viên sức khỏe AI. Nhiệm vụ của bạn là phân tích dữ liệu calo hàng ngày của người dùng và đưa ra những nhận xét, lời khuyên thân thiện, chi tiết và mang tính xây dựng để giúp họ đạt được mục tiêu.
+
+Ngữ cảnh:
+Người dùng đang theo một kế hoạch ăn uống được cá nhân hóa. Họ muốn biết họ đang thực hiện kế hoạch đó tốt như thế nào.
+
+Hãy phân tích dữ liệu calo của người dùng và đưa ra nhận xét.
+
+**Định dạng đầu ra mong muốn là một đối tượng JSON với hai khóa: "title" (một chuỗi ngắn gọn, hấp dẫn) và "reply" (một chuỗi chứa nội dung phản hồi chi tiết).**
+`;
+
+  const messageToAI = `
+  Mục tiêu của tôi: ${mealPlan.goal === 'gain' ? 'Tăng cân' : mealPlan.goal === 'loss' ? 'Giảm cân' : 'Duy trì cân nặng'}
+  Lượng calo mục tiêu hàng ngày: ${mealPlan.targetCalories.toFixed(0)} kcal
+  Lượng calo tiêu thụ trung bình hàng ngày trong tuần: ${averageDailyCalories.toFixed(0)} kcal
+  Dữ liệu chi tiết các ngày:
+  ${dailyDataForAI.join('\n')}
+
+  Dựa vào dữ liệu trên, hãy viết một phản hồi cho tôi theo cấu trúc sau:
+
+  1.  **Nhận xét chung:**
+      *   So sánh lượng calo tiêu thụ trung bình hàng ngày với lượng calo mục tiêu.
+      *   Đánh giá mức độ tuân thủ kế hoạch của tôi.
+      *   Chỉ ra những ngày tôi làm tốt và những ngày có thể cần cải thiện.
+  2.  **Lời khuyên & Động viên:**
+      *   Nếu tôi làm tốt: Khen ngợi và khuyến khích tôi tiếp tục duy trì. Đưa ra một vài mẹo nhỏ để tối ưu hơn nữa.
+      *   Nếu tôi chưa đạt mục tiêu: Đừng chỉ trích. Thay vào đó, hãy đưa ra những gợi ý cụ thể và dễ thực hiện. Ví dụ: "Tôi thấy một vài ngày bạn đã tiêu thụ hơi nhiều calo hơn mục tiêu. Có lẽ bạn có thể thử thay thế bữa ăn nhẹ X bằng Y vào lần tới?" hoặc "Để đạt được mục tiêu ${mealPlan.goal}, việc duy trì lượng calo gần với ${mealPlan.targetCalories} là rất quan trọng. Hãy thử chuẩn bị trước bữa ăn để kiểm soát tốt hơn nhé."
+      *   Cung cấp thêm 1-2 lời khuyên chung về dinh dưỡng hoặc lối sống phù hợp với mục tiêu của tôi (ví dụ: uống đủ nước, ngủ đủ giấc, tầm quan trọng của protein khi tăng cân...).
+  3.  **Kết luận:** Một câu kết thúc tích cực và động viên.
+
+  **Giọng văn:** Thân thiện, tích cực, chuyên nghiệp và dễ hiểu. Sử dụng "bạn" và "tôi" để tạo cảm giác cá nhân hóa.
+  `;
+
+  const aiAssessment = await generateAIResponse(messageToAI, prompt);
+
+
+  return { calorieSummaryByDay, aiAssessment };
 };
 
 // Interface for recording progress
@@ -1328,6 +1371,16 @@ export const getUserProgress = async (userId: string): Promise<{ progress: UserP
     progress,
     weightTarget: user.weightTarget,
   };
+};
+
+export const getLargestDayNumber = async (userId: string): Promise<{ max_day: number }> => {
+  const maxDayNumberResult = await mealRepository.manager.createQueryBuilder(MealPlanDay, "mpd")
+    .leftJoin("mpd.meal_plan", "mp")
+    .where("mp.user.id = :userId", { userId })
+    .select("MAX(mpd.day_number)", "max_day")
+    .getRawOne();
+
+  return { max_day: (maxDayNumberResult && maxDayNumberResult.max_day) ? maxDayNumberResult.max_day : 0 };
 };
 
 export {

@@ -1,11 +1,11 @@
 import { Router } from "express";
-import { calculateCaloriesUser, getMealPlanDetailsController, getUserMealPlansController, getCalculationResultController, getSuggestedMealsForSwap, updateMealInPlan, updateMealPlanNameController, getStatisticsByDayController, recordUserProgressController, getUserProgressController } from "./calories.controller";
+import { calculateCaloriesUser, getMealPlanDetailsController, getUserMealPlansController, getCalculationResultController, getSuggestedMealsForSwap, updateMealInPlan, updateMealPlanNameController, getStatisticsByDayController, recordUserProgressController, getUserProgressController, getLargestDayNumberController } from "./calories.controller";
 const CaloriesRouter = Router();
 
 CaloriesRouter.post("/calculate", calculateCaloriesUser);
 CaloriesRouter.get("/meal-plans/:userId",getUserMealPlansController);
 CaloriesRouter.get("/meal-menu/:mealPlanId", getMealPlanDetailsController);
-CaloriesRouter.get("/statistics/daily", (req, res, next) => {
+CaloriesRouter.get("/statistics/daily/:userId", (req, res, next) => {
   Promise.resolve(getStatisticsByDayController(req, res)).catch(next);
 });
 CaloriesRouter.get("/calculation-result", (req, res, next) => {
@@ -29,6 +29,6 @@ CaloriesRouter.post("/progress/record", (req, res, next) => {
 CaloriesRouter.get("/progress/:userId", (req, res, next) => {
   Promise.resolve(getUserProgressController(req, res)).catch(next);
 });
-
+CaloriesRouter.get("/largest-day/:userId", getLargestDayNumberController);
 
 export default CaloriesRouter;

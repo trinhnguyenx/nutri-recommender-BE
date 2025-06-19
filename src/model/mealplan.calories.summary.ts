@@ -19,6 +19,8 @@ export class MealPlanCalorieSummary {
 
   @Column({ type: "enum", enum: ["gain", "maintenance", "loss"] })
   goal: string;
+  
+  targetCalories: number;
 
   @Column("float", { default: 0 })
   breakfast_calories: number;

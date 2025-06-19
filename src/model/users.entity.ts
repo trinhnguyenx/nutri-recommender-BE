@@ -50,7 +50,7 @@ export class User {
   @Column({ default: false })
   is_premium: boolean;
 
-  @Column('int', { default: 0 })
+  @Column('int', { default: 2 })
   meal_plan_count: number;
 
   @OneToMany(() => MealPlan, (mealPlan) => mealPlan.user)
