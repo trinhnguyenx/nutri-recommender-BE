@@ -6,10 +6,9 @@ import { PaymentTransaction } from '@/model/payment.entity';
 
 
 export const createPaymentService = async (data: CreatePaymentDto & { userId: string }) => {
-// const orderCode = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-  const orderCode = 123
+const orderCode = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+  // const orderCode = 123
   const { buyerEmail, buyerName, userId } = data;
-
   const user = await userRepository.findOne({ where: { id: userId } });
 
   if (!user) {
@@ -18,7 +17,7 @@ export const createPaymentService = async (data: CreatePaymentDto & { userId: st
 
   const paymentLink = await payos.createPaymentLink({
     orderCode: Number(orderCode),
-    amount: 1000,
+    amount: 2000,
     description: 'Pay Premium HEALTHYFIT',
     returnUrl: `${process.env.CLIENT_URL}/payment-success?orderCode=${orderCode.toString()}`,
     cancelUrl: `${process.env.CLIENT_URL}/payment-cancel?orderCode=${orderCode.toString()}`,

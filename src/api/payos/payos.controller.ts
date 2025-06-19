@@ -1,6 +1,5 @@
 import { Request, Response } from 'express';
 import { createPaymentService, handlePaymentSuccess } from './payos.service';
-import { log } from 'console';
 
 export const createPayment = async (req: Request, res: Response) => {
   try {
