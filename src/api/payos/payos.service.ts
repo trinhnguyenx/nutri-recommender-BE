@@ -6,8 +6,8 @@ import { PaymentTransaction } from '@/model/payment.entity';
 
 
 export const createPaymentService = async (data: CreatePaymentDto & { userId: string }) => {
-const orderCode = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-  // const orderCode = 123
+// const orderCode = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+  const orderCode = 123
   const { buyerEmail, buyerName, userId } = data;
 
   const user = await userRepository.findOne({ where: { id: userId } });
@@ -66,7 +66,7 @@ export const handlePaymentSuccess = async (orderCode: string, paymentLinkId: str
   const user = payment.user;
   if (!user.is_premium) {
     user.is_premium = true;
-    user.meal_plan_count = 10;
+    user.meal_plan_count = user.meal_plan_count + 10;
     await userRepository.saveUserAsync(user);
   }
 
