@@ -34,21 +34,18 @@ await paymentRepository.createPaymentTransactionAsync({
     status: 'pending',
   });
 
+  await handlePaymentSuccess(orderCode.toString(), paymentLink.checkoutUrl);
+
   return paymentLink;
-};
+};  
 
 
 
 export const handlePaymentSuccess = async (orderCode: string, paymentLinkId: string) => {
-  if (orderCode === "123") {
-    console.log("Bypassed logic for test orderCode 123");
-    return;
-  }
 
   const payment = await paymentRepository.findByOrderCodeAsync(orderCode);
 
   if (!payment) {
-    // throw new Error('Không tìm thấy giao dịch thanh toán');
     return;
   }
 

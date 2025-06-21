@@ -104,17 +104,15 @@ const adjustCaloriesForGoal = (
   const dailyCalorieAdjustment = (weeklyGainRate * 7700) / 7;
   if (weightDifference > 0) return tdee + dailyCalorieAdjustment; // Gain
   if (weightDifference < 0) return tdee - dailyCalorieAdjustment; // Loss
-  return tdee; // Maintenance
+  return tdee;
 };
 
-// Define meal slots based on goal
 const getMealSlots = (goal: "gain" | "loss" | "maintenance"): (keyof MealPlanResponse)[] => {
   return goal === "gain"
     ? ["breakfast", "snack1", "lunch", "snack2", "dinner", "snack3"]
     : ["breakfast", "lunch", "snack2", "dinner"];
 };
 
-// Distribute calories across meals
 const getCalorieTargets = (
   targetCalories: number,
   goal: "gain" | "loss" | "maintenance"
@@ -129,23 +127,23 @@ const getCalorieTargets = (
   };
 
   if (goal === "gain") {
-    result.breakfast = Math.round(targetCalories * (Math.random() * 0.05 + 0.2)); // 20-25%
-    result.lunch = Math.round(targetCalories * (Math.random() * 0.05 + 0.25)); // 25-30%
-    result.dinner = Math.round(targetCalories * (Math.random() * 0.05 + 0.2)); // 20-25%
-    result.snack1 = Math.round(targetCalories * 0.1); // 10%
-    result.snack2 = Math.round(targetCalories * 0.1); // 10%
-    result.snack3 = Math.round(targetCalories * 0.1); // 10%
+    result.breakfast = Math.round(targetCalories * (Math.random() * 0.05 + 0.2)); 
+    result.lunch = Math.round(targetCalories * (Math.random() * 0.05 + 0.25)); 
+    result.dinner = Math.round(targetCalories * (Math.random() * 0.05 + 0.2)); 
+    result.snack1 = Math.round(targetCalories * 0.1); 
+    result.snack2 = Math.round(targetCalories * 0.1); 
+    result.snack3 = Math.round(targetCalories * 0.1); 
     const total = Object.values(result).reduce((sum, val) => sum + val, 0);
     const adjust = targetCalories - total;
     result.lunch += adjust; // Adjust lunch to match target
   } else {
-    result.breakfast = Math.round(targetCalories * (Math.random() * 0.05 + 0.25)); // 25-30%
-    result.lunch = Math.round(targetCalories * (Math.random() * 0.05 + 0.3)); // 30-35%
-    result.dinner = Math.round(targetCalories * (Math.random() * 0.05 + 0.25)); // 25-30%
-    result.snack2 = Math.round(targetCalories * 0.1); // 10%
+    result.breakfast = Math.round(targetCalories * (Math.random() * 0.05 + 0.25)); 
+    result.lunch = Math.round(targetCalories * (Math.random() * 0.05 + 0.3)); 
+    result.dinner = Math.round(targetCalories * (Math.random() * 0.05 + 0.25)); 
+    result.snack2 = Math.round(targetCalories * 0.1);
     const total = Object.values(result).reduce((sum, val) => sum + val, 0);
     const adjust = targetCalories - total;
-    result.lunch += adjust; // Adjust lunch to match target
+    result.lunch += adjust; 
   }
 
   return result;
