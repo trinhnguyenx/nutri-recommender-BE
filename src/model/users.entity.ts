@@ -5,7 +5,7 @@ import { Conversation } from './conversation.entity';
 import {PaymentTransaction} from './payment.entity';
 import { UserProgress } from './user.progress.entity';
 import { MealPlanCalorieSummary } from './mealplan.calories.summary';
-
+import {UserMealPreference} from './user.meal.preference.entity';
 @Entity('users')
 export class User {
   @PrimaryGeneratedColumn('uuid')
@@ -52,6 +52,12 @@ export class User {
 
   @Column('int', { default: 2 })
   meal_plan_count: number;
+
+  @Column({ nullable: true })
+  tdee: number;
+
+  @OneToMany(() => UserMealPreference, preference => preference.user)
+  preferences: UserMealPreference[];
 
   @OneToMany(() => MealPlan, (mealPlan) => mealPlan.user)
   meal_plans: MealPlan[];

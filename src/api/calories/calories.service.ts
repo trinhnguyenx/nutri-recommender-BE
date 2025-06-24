@@ -6,11 +6,14 @@ import { MealPlanDay } from "../../model/mealplanday.entity";
 import { MealPlanMeal } from "../../model/mealplanmeals.entity";
 import { CalculationResult } from "../../model/caculation.result";
 import { userRepository } from "../../repository/userRepository";
+import { userMealPreferenceRepository } from "../../repository/user.meal.preference.repository";
 import {MealPlanSummary, GetSuggestedMealsParams } from "./calories.interface";
 import { CalorieResult,ExtendedCalculateCaloriesParams, MealPlanResponse, MealPlanEntry, NutritionSummary, UpdateMealPlanNameParams, CalorieSummaryByDay} from "./calories.interface";
 import { MealPlanCalorieSummary } from "@/model/mealplan.calories.summary";
 import { UserProgress } from "@/model/user.progress.entity";
 import { AIResponse } from "../chatbot/chatbot.interface";
+import { UserMealPreference } from "../../model/user.meal.preference.entity";
+import { In } from 'typeorm';
 
 interface ExtendedCalorieResult extends CalorieResult {
   mealPlan: { [day: number]: MealPlanResponse };
@@ -30,6 +33,7 @@ interface Meals {
   ingredients: string;
   meal_type: string;
   suitable: string;
+  score?: number;
 }
 
 interface MealInPlan {
@@ -135,7 +139,7 @@ const getCalorieTargets = (
     result.snack3 = Math.round(targetCalories * 0.1); 
     const total = Object.values(result).reduce((sum, val) => sum + val, 0);
     const adjust = targetCalories - total;
-    result.lunch += adjust; // Adjust lunch to match target
+    result.lunch += adjust; 
   } else {
     result.breakfast = Math.round(targetCalories * (Math.random() * 0.05 + 0.25)); 
     result.lunch = Math.round(targetCalories * (Math.random() * 0.05 + 0.3)); 
@@ -202,98 +206,316 @@ const mealTimeFilter = (meal: Meals, time: keyof MealPlanResponse): boolean => {
   );
 };
 
-// Select dessert meal
-const selectDessertMeal = (
-  meals: Meals[],
-  mealPlan: { [day: number]: MealPlanResponse },
-  time: keyof MealPlanResponse,
-  currentDay: number,
-  targetCalories: number,
-  goal: "gain" | "loss" | "maintenance",
-  allergies: string[],
-  usedMealIds: Set<string>,
-  suitable: string
-): Meals | null => {
-  const repeatDays = 2;
-  const dessertMeals = meals
-    .filter(
-      (m) =>
-        m.meal_type === "dessert" &&
-        (m.suitable === suitable || m.suitable === "any") &&
-        isMealAllergenFree(m, allergies) &&
-        !isMealUsedInLastNDays(m.id, m.meal_type, mealPlan, time, currentDay, repeatDays) &&
-        !usedMealIds.has(m.id) &&
-        m.calories <= targetCalories * 1.2 // Allow slight flexibility
-    )
-    .sort((a, b) => Math.abs(a.calories - targetCalories) - Math.abs(b.calories - targetCalories));
-
-  if (dessertMeals.length > 0) {
-    const dessert = dessertMeals[0];
-    console.log(`Selected dessert for ${time} on day ${currentDay}: ${dessert.name} (${dessert.calories} kcal)`);
-    return dessert;
-  }
-
-  console.warn(`No dessert available for ${time} on day ${currentDay}`);
-  return null;
-};
-
-// Select random snack or dessert
-const selectRandomMeal = (
+// Select snack or dessert meal (Optimized version)
+const selectSnackOrDessert = (
   meals: Meals[],
   mealType: string,
   mealPlan: { [day: number]: MealPlanResponse },
   time: keyof MealPlanResponse,
   currentDay: number,
+  targetCalories: number,
   allergies: string[],
   usedMealIds: Set<string>,
   suitable: string
 ): Meals | null => {
   const repeatDays = 2;
-  const filteredMeals = meals
-    .filter(
-      (m) =>
-        m.meal_type === mealType &&
-        (m.suitable === suitable || m.suitable === "any") &&
-        isMealAllergenFree(m, allergies) &&
-        !isMealUsedInLastNDays(m.id, m.meal_type, mealPlan, time, currentDay, repeatDays) &&
-        !usedMealIds.has(m.id)
-    );
 
-  if (filteredMeals.length > 0) {
-    const meal = filteredMeals[Math.floor(Math.random() * filteredMeals.length)];
-    console.log(`Selected ${mealType} for ${time} on day ${currentDay}: ${meal.name} (${meal.calories} kcal)`);
-    return meal;
+  // LỚP 1: Thử tìm kiếm theo cách "lý tưởng"
+  const idealMeals = meals.filter(
+    (m) =>
+      m.meal_type === mealType &&
+      (m.suitable === suitable || m.suitable === "any") &&
+      isMealAllergenFree(m, allergies) &&
+      !isMealUsedInLastNDays(m.id, m.meal_type, mealPlan, time, currentDay, repeatDays) &&
+      !usedMealIds.has(m.id)
+  );
+
+  if (idealMeals.length > 0) {
+    // Nếu tìm thấy các món lý tưởng, áp dụng logic chọn tối ưu -> ngẫu nhiên
+    let bestCandidate: Meals | null = null;
+    let minDifference = Infinity;
+
+    for (const meal of idealMeals) {
+      const difference = Math.abs(meal.calories - targetCalories);
+      if (difference < minDifference) {
+        minDifference = difference;
+        bestCandidate = meal;
+      }
+    }
+
+    const calorieThreshold = 0.15; // Ngưỡng 15%
+    if (bestCandidate && minDifference <= targetCalories * calorieThreshold) {
+      console.log(`Selected optimal ${mealType}: ${bestCandidate.name}`);
+      return bestCandidate;
+    } else {
+      const randomMeal = idealMeals[Math.floor(Math.random() * idealMeals.length)];
+      console.log(`No optimal meal found. Selected random ${mealType}: ${randomMeal.name}`);
+      return randomMeal;
+    }
   }
 
-  console.warn(`No ${mealType} available for ${time} on day ${currentDay}`);
+  // LỚP 2: Kích hoạt cơ chế "Dự phòng" (tôn trọng dị ứng)
+  console.warn(`No ideal meal found for ${mealType}. Activating allergy-aware fallback.`);
+  const fallbackMeals = meals.filter(
+    (m) => m.meal_type === mealType && isMealAllergenFree(m, allergies)
+  );
+
+  if (fallbackMeals.length > 0) {
+    const fallbackMeal = fallbackMeals[Math.floor(Math.random() * fallbackMeals.length)];
+    console.log(`FALLBACK: Selected random allergy-free ${mealType}: ${fallbackMeal.name}.`);
+    return fallbackMeal;
+  }
+
+  // LỚP 3: Cơ chế "Dự phòng cuối cùng" (bỏ qua dị ứng)
+  console.warn(`No allergy-free fallback found for ${mealType}. Activating LAST RESORT fallback.`);
+  const lastResortMeals = meals.filter((m) => m.meal_type === mealType);
+
+  if (lastResortMeals.length > 0) {
+    const fallbackMeal = lastResortMeals[Math.floor(Math.random() * lastResortMeals.length)];
+    console.log(`LAST RESORT FALLBACK: Selected random ${mealType}: ${fallbackMeal.name}. This may ignore allergies.`);
+    return fallbackMeal;
+  }
+
+  // Trường hợp cuối cùng: không có món nào cùng loại trong CSDL
+  console.error(`CRITICAL: No meals of type '${mealType}' found in the database at all.`);
   return null;
 };
 
-// Select random snack for gain
-const selectRandomSnackForGain = (
+
+// Helper function to find the best meal based on criteria
+const findBestMeal = (
   meals: Meals[],
-  mealPlan: { [day: number]: MealPlanResponse },
-  time: keyof MealPlanResponse,
-  currentDay: number,
-  allergies: string[],
-  usedMealIds: Set<string>
+  criteria: {
+    mealType: string | string[];
+    targetCalories: number;
+    allergies: string[];
+    usedMealIds: Set<string>;
+    suitable: string;
+    mealPlan: { [day: number]: MealPlanResponse };
+    time: keyof MealPlanResponse;
+    currentDay: number;
+    ignoreRepeatRule?: boolean;
+  }
 ): Meals | null => {
-  return selectRandomMeal(meals, "snack", mealPlan, time, currentDay, allergies, usedMealIds, "gain");
+  let bestMeal: Meals | null = null;
+  let minDifference = Infinity;
+  const repeatDays = 2;
+
+  const mealTypes = Array.isArray(criteria.mealType) ? criteria.mealType : [criteria.mealType];
+
+  for (const meal of meals) {
+    // Basic filtering
+    if (
+      !mealTypes.includes(meal.meal_type) ||
+      !(meal.suitable === criteria.suitable || meal.suitable === "any") ||
+      !isMealAllergenFree(meal, criteria.allergies) ||
+      criteria.usedMealIds.has(meal.id)
+    ) {
+      continue;
+    }
+
+    // Conditionally apply the repeat rule
+    if (!criteria.ignoreRepeatRule) {
+      if (isMealUsedInLastNDays(meal.id, meal.meal_type, criteria.mealPlan, criteria.time, criteria.currentDay, repeatDays)) {
+        continue;
+      }
+    }
+
+    // If all filters pass, check if it's a better candidate
+    const difference = Math.abs(meal.calories - criteria.targetCalories);
+    if (difference < minDifference) {
+      minDifference = difference;
+      bestMeal = meal;
+    }
+  }
+  return bestMeal;
 };
 
-// Select random dessert for snack
-const selectRandomDessertForSnack = (
-  meals: Meals[],
-  mealPlan: { [day: number]: MealPlanResponse },
-  time: keyof MealPlanResponse,
-  currentDay: number,
-  allergies: string[],
-  usedMealIds: Set<string>
+// Helper function for Weighted Random Selection based on user preference scores
+const selectMealWithPreference = (
+  meals: Meals[]
 ): Meals | null => {
-  return selectRandomMeal(meals, "dessert", mealPlan, time, currentDay, allergies, usedMealIds, "loss");
+  if (meals.length === 0) {
+    return null;
+  }
+
+  let totalWeight = 0;
+  const weightedMeals = meals.map(meal => {
+    // Trọng số được tính dựa trên điểm, đảm bảo luôn > 0
+    const weight = Math.max(0.1, 1 + (meal.score || 0));
+    totalWeight += weight;
+    return { meal, weight };
+  });
+
+  const randomValue = Math.random() * totalWeight;
+
+  let cumulativeWeight = 0;
+  for (const { meal, weight } of weightedMeals) {
+    cumulativeWeight += weight;
+    if (randomValue <= cumulativeWeight) {
+      return meal; // Trả về món ăn được chọn
+    }
+  }
+
+  return meals[meals.length - 1]; // Fallback
 };
 
-// Select meals for main meal slots
+// Helper function that wraps findBestMeal with a random fallback
+const findMealWithFallback = (
+  meals: Meals[],
+  criteria: {
+    mealType: string | string[];
+    targetCalories: number;
+    allergies: string[];
+    usedMealIds: Set<string>;
+    suitable: string;
+    mealPlan: { [day: number]: MealPlanResponse };
+    time: keyof MealPlanResponse;
+    currentDay: number;
+    ignoreRepeatRule?: boolean;
+  }
+): Meals | null => {
+  // 1. Try the ideal search first
+  const bestMeal = findBestMeal(meals, criteria);
+  if (bestMeal) {
+    return bestMeal;
+  }
+
+  // 2. If ideal search fails, activate fallback (respecting allergies)
+  const mealTypes = Array.isArray(criteria.mealType)
+    ? criteria.mealType
+    : [criteria.mealType];
+  console.warn(
+    `No ideal meal found for type(s) '${mealTypes.join(
+      ", "
+    )}'. Activating allergy-aware fallback.`
+  );
+
+  const fallbackMeals = meals.filter(
+    (m) =>
+      mealTypes.includes(m.meal_type) && isMealAllergenFree(m, criteria.allergies)
+  );
+
+  if (fallbackMeals.length > 0) {
+    const fallbackMeal =
+      fallbackMeals[Math.floor(Math.random() * fallbackMeals.length)];
+    console.log(
+      `FALLBACK: Selected random allergy-free meal of type '${fallbackMeal.meal_type}': ${fallbackMeal.name}. This ignores other rules.`
+    );
+    return fallbackMeal;
+  }
+
+  // 3. If allergy-aware fallback fails, activate last-resort fallback (ignoring allergies)
+  console.warn(
+    `No allergy-free fallback found for type(s) '${mealTypes.join(
+      ", "
+    )}'. Activating LAST RESORT fallback (may ignore allergies).`
+  );
+
+  const lastResortMeals = meals.filter((m) => mealTypes.includes(m.meal_type));
+
+  if (lastResortMeals.length > 0) {
+    const fallbackMeal =
+      lastResortMeals[Math.floor(Math.random() * lastResortMeals.length)];
+    console.log(
+      `LAST RESORT FALLBACK: Selected random meal of type '${fallbackMeal.meal_type}': ${fallbackMeal.name}. This IGNORES ALL RULES.`
+    );
+    return fallbackMeal;
+  }
+
+  // 4. Final case: no meals of this type exist at all
+  console.error(
+    `CRITICAL: No meals of type(s) '${mealTypes.join(
+      ", "
+    )}' found in the database at all.`
+  );
+  return null;
+};
+
+// Helper function to select a carb based on the user's goal
+const selectCarbByGoal = (
+  meals: Meals[],
+  goal: "gain" | "loss" | "maintenance",
+  allergies: string[]
+): Meals | null => {
+  // 1. Filter for available, non-allergenic carbs first
+  let availableCarbs = meals.filter(
+    (m) => m.meal_type === "carb" && isMealAllergenFree(m, allergies)
+  );
+
+  // 2. If no allergy-free carbs, activate fallback
+  if (availableCarbs.length === 0) {
+    console.warn(
+      `No allergy-free carb found. Activating fallback to select a carb and ignore allergies.`
+    );
+    availableCarbs = meals.filter((m) => m.meal_type === "carb");
+  }
+
+  // 3. If still no carbs, return null
+  if (availableCarbs.length === 0) {
+    console.error(`CRITICAL: No meals of type 'carb' found in the database.`);
+    return null;
+  }
+
+  // 4. Apply goal-based selection logic
+  if (goal === "gain" || goal === "maintenance") {
+    // Find the carb with the maximum calories
+    return availableCarbs.reduce((max, m) =>
+      m.calories > max.calories ? m : max, availableCarbs[0]
+    );
+  } else {
+    // goal === "loss"
+    // Find the carb with the minimum calories
+    return availableCarbs.reduce((min, m) =>
+      m.calories < min.calories ? m : min, availableCarbs[0]
+    );
+  }
+};
+
+// Meal Strategy Brain V2: Determines meal structure based on goal, time, and day of the week.
+const determineMealStrategy = (
+  goal: "gain" | "loss" | "maintenance",
+  time: "lunch" | "dinner",
+  currentDay: number
+): "COMPOSED_WITH_CARB" | "COMPOSED_NO_CARB" | "SINGLE_DISH" => {
+  const dayOfWeek = (currentDay - 1) % 7; // 0=Sun, 1=Mon, ..., 6=Sat (adjust if start day is different)
+
+  switch (goal) {
+    case "loss":
+      // For weight loss, carb at lunch, no carb at dinner.
+      return time === "lunch" ? "COMPOSED_WITH_CARB" : "COMPOSED_NO_CARB";
+
+    case "maintenance":
+      // For maintenance, carb at lunch, single dish for dinner for variety.
+      return time === "lunch" ? "COMPOSED_WITH_CARB" : "SINGLE_DISH";
+
+    case "gain":
+      // For weight gain, implement the flexible weekly carb schedule.
+      // Days 0, 1 (e.g., Sun, Mon): Carb at lunch only.
+      if ([0, 3].includes(dayOfWeek)) {
+        return time === "lunch" ? "COMPOSED_WITH_CARB" : "SINGLE_DISH";
+      }
+      // Days 2, 3 (e.g., Tue, Wed): Carb at dinner only.
+      if ([1, 4].includes(dayOfWeek)) {
+        return time === "dinner" ? "COMPOSED_WITH_CARB" : "SINGLE_DISH";
+      }
+      // Days 4, 5 (e.g., Thu, Fri): Carb at both lunch and dinner.
+      if ([2, 5].includes(dayOfWeek)) {
+        return "COMPOSED_WITH_CARB";
+      }
+      // Day 6 (e.g., Sat): Flexible, let's do carb at lunch.
+      if (dayOfWeek === 6) {
+        return time === "lunch" ? "COMPOSED_WITH_CARB" : "SINGLE_DISH";
+      }
+      // Fallback for any unexpected case
+      return "COMPOSED_WITH_CARB";
+
+    default:
+      // Default strategy if goal is not specified.
+      return "COMPOSED_WITH_CARB";
+  }
+};
+
 const selectMainMeals = (
   meals: Meals[],
   mealPlan: { [day: number]: MealPlanResponse },
@@ -304,309 +526,111 @@ const selectMainMeals = (
   allowedMealTypes: string[],
   allergies: string[],
   usedMealIds: Set<string>,
-  suitable: string,
-  isMainUsed: boolean
+  suitable: string
 ): Meals[] => {
   const selectedMeals: Meals[] = [];
-  const repeatDays = 2;
 
-  if (time === "dinner" && goal === "gain" && isMainUsed) {
-    let carb = meals.filter(
-      (m) =>
-        m.meal_type === "carb" &&
-        m.name.toLowerCase() === "cơm trắng" &&
-        m.suitable === "any" &&
-        m.calories >= 200 &&
-        m.calories <= 300 &&
-        isMealAllergenFree(m, allergies) &&
-        !isMealUsedInLastNDays(m.id, m.meal_type, mealPlan, time, currentDay, repeatDays) &&
-        !usedMealIds.has(m.id)
-    );
-    console.log(`Available Cơm trắng 220g for ${time} on day ${currentDay}: ${carb.map((m) => m.calories)}`);
+  // Determine the strategy for this specific meal
+  const strategy = determineMealStrategy(goal, time as "lunch" | "dinner", currentDay);
+  console.log(`Day ${currentDay}, ${time}: Meal strategy is '${strategy}'`);
 
-    if (carb.length > 0) {
-      selectedMeals.push(carb[0]);
-      usedMealIds.add(carb[0].id);
-      console.log(`Selected Cơm trắng for ${time} on day ${currentDay}: ${carb[0].name} (${carb[0].calories} kcal)`);
+  // --- STRATEGY: SINGLE_DISH ---
+  if (strategy === "SINGLE_DISH") {
+    const mainMeal = findMealWithFallback(meals, { // Use fallback to ensure a meal is always found
+      mealType: "main",
+      targetCalories: targetCalories * 0.8,
+      allergies,
+      usedMealIds,
+      suitable,
+      mealPlan,
+      time,
+      currentDay,
+    });
+
+    if (mainMeal) {
+      console.log(`Selected SINGLE_DISH strategy: ${mainMeal.name}`);
+      selectedMeals.push(mainMeal);
+      usedMealIds.add(mainMeal.id);
+
+      // Add a dessert to complement
+      const dessert = selectSnackOrDessert(meals, "dessert", mealPlan, time, currentDay, targetCalories * 0.2, allergies, usedMealIds, suitable);
+      if (dessert) {
+        selectedMeals.push(dessert);
+        usedMealIds.add(dessert.id);
+      }
     } else {
-      console.warn(`No Cơm trắng 220g available for ${time} on day ${currentDay}, trying alternative carb`);
-      const fallbackCarb = meals
-        .filter(
-          (m) =>
-            m.meal_type === "carb" &&
-            mealTimeFilter(m, time) &&
-            (m.suitable === "any") &&
-            isMealAllergenFree(m, allergies) &&
-            !isMealUsedInLastNDays(m.id, m.meal_type, mealPlan, time, currentDay, repeatDays) &&
-            !usedMealIds.has(m.id)
-        )
-        .sort((a, b) => Math.abs(a.calories - targetCalories * 0.25) - Math.abs(b.calories - targetCalories * 0.25));
-
-      if (fallbackCarb.length > 0) {
-        selectedMeals.push(fallbackCarb[0]);
-        usedMealIds.add(fallbackCarb[0].id);
-        console.log(`Selected fallback carb for ${time} on day ${currentDay}: ${fallbackCarb[0].name} (${fallbackCarb[0].calories} kcal)`);
-      } else {
-        console.warn(`No carb available for ${time} on day ${currentDay}`);
-      }
-    }
-
-    const sideTypes = ["salty", "soup", "xvegetable", "lvegetable", "boil"];
-    const selectedSideTypes = sideTypes.sort(() => Math.random() - 0.5).slice(0, 3);
-    let remainingCalories = targetCalories * 0.65;
-    if (selectedMeals.length > 0) {
-      remainingCalories -= selectedMeals[0].calories;
-    }
-
-    for (const type of selectedSideTypes) {
-      const sideMeals = meals
-        .filter(
-          (m) =>
-            m.meal_type === type &&
-            mealTimeFilter(m, time) &&
-            (m.suitable === suitable || m.suitable === "any") &&
-            isMealAllergenFree(m, allergies) &&
-            !isMealUsedInLastNDays(m.id, m.meal_type, mealPlan, time, currentDay, repeatDays) &&
-            !usedMealIds.has(m.id)
-        )
-        .sort((a, b) => Math.abs(a.calories - remainingCalories / (3 - selectedMeals.length + 1)) - Math.abs(b.calories - remainingCalories / (3 - selectedMeals.length + 1)));
-
-      if (sideMeals.length > 0) {
-        const side = sideMeals[0];
-        selectedMeals.push(side);
-        usedMealIds.add(side.id);
-        remainingCalories -= side.calories;
-        console.log(`Selected ${side.meal_type} for ${time} on day ${currentDay}: ${side.name} (${side.calories} kcal)`);
-      } else {
-        console.warn(`No ${type} available for ${time} on day ${currentDay}`);
-        const fallbackSides = meals.filter(
-          (m) =>
-            sideTypes.includes(m.meal_type) &&
-            isMealAllergenFree(m, allergies) &&
-            !isMealUsedInLastNDays(m.id, m.meal_type, mealPlan, time, currentDay, repeatDays) &&
-            !usedMealIds.has(m.id)
-        );
-        if (fallbackSides.length > 0) {
-          const side = fallbackSides[0];
-          selectedMeals.push(side);
-          usedMealIds.add(side.id);
-          remainingCalories -= side.calories;
-          console.log(`Fallback ${side.meal_type} for ${time} on day ${currentDay}: ${side.name} (${side.calories} kcal)`);
-        } else {
-          console.warn(`No fallback side available for ${time} on day ${currentDay}`);
-        }
-      }
-    }
-
-    const dessert = selectDessertMeal(meals, mealPlan, time, currentDay, targetCalories * 0.1, goal, allergies, usedMealIds, suitable);
-    if (dessert) {
-      selectedMeals.push(dessert);
-      usedMealIds.add(dessert.id);
-    }
-
-    return selectedMeals;
-  }
-
-  const mainMeals = meals
-    .filter(
-      (m) =>
-        m.meal_type === "main" &&
-        mealTimeFilter(m, time) &&
-        (m.suitable === suitable || m.suitable === "any") &&
-        isMealAllergenFree(m, allergies) &&
-        !isMealUsedInLastNDays(m.id, m.meal_type, mealPlan, time, currentDay, repeatDays) &&
-        !usedMealIds.has(m.id)
-    )
-    .sort((a, b) => Math.abs(a.calories - targetCalories * 0.8) - Math.abs(b.calories - targetCalories * 0.8));
-
-  if (mainMeals.length > 0) {
-    const mainMeal = mainMeals[0];
-    selectedMeals.push(mainMeal);
-    usedMealIds.add(mainMeal.id);
-    console.log(`Selected main for ${time} on day ${currentDay}: ${mainMeal.name} (${mainMeal.calories} kcal)`);
-
-    const dessert = selectDessertMeal(meals, mealPlan, time, currentDay, targetCalories * 0.1, goal, allergies, usedMealIds, suitable);
-    if (dessert) {
-      selectedMeals.push(dessert);
-      usedMealIds.add(dessert.id);
+       console.error(`CRITICAL: No 'main' dish found for SINGLE_DISH strategy on day ${currentDay}, ${time}.`);
     }
     return selectedMeals;
   }
 
-  let carb = null;
-  if (goal === "gain" || goal === "maintenance") {
-    const whiteRice220g = meals.filter(
-      (m) =>
-        m.meal_type === "carb" &&
-        m.name.toLowerCase() === "cơm trắng" &&
-        m.suitable === "any" &&
-        m.calories >= 200 &&
-        m.calories <= 300 &&
-        isMealAllergenFree(m, allergies) &&
-        !isMealUsedInLastNDays(m.id, m.meal_type, mealPlan, time, currentDay, repeatDays) &&
-        !usedMealIds.has(m.id)
-    );
-    console.log(`Available Cơm trắng 220g for ${time} on day ${currentDay}: ${whiteRice220g.map((m) => m.calories)}`);
-    if (whiteRice220g.length > 0) {
-      carb = whiteRice220g[0];
-    }
-  } else if (goal === "loss") {
-    const whiteRice120g = meals.filter(
-      (m) =>
-        m.meal_type === "carb" &&
-        m.name.toLowerCase() === "cơm trắng" &&
-        m.suitable === "loss" &&
-        m.calories >= 100 &&
-        m.calories <= 150 &&
-        isMealAllergenFree(m, allergies) &&
-        !isMealUsedInLastNDays(m.id, m.meal_type, mealPlan, time, currentDay, repeatDays) &&
-        !usedMealIds.has(m.id)
-    );
-    console.log(`Available Cơm trắng 120g for ${time} on day ${currentDay}: ${whiteRice120g.map((m) => m.calories)}`);
-    if (whiteRice120g.length > 0) {
-      carb = whiteRice120g[0];
-    }
-  }
+  // --- STRATEGY: COMPOSED (with or without carb) ---
+  console.log(`Composing meal for ${time} on day ${currentDay}`);
+  let remainingCalories = targetCalories;
+  const sideDishTypes = ["salty", "soup", "xvegetable", "lvegetable", "boil"];
+  let numberOfSideDishes = 3;
 
-  if (!carb) {
-    const carbMeals = meals
-      .filter(
-        (m) =>
-          m.meal_type === "carb" &&
-          mealTimeFilter(m, time) &&
-          (m.suitable === (goal === "gain" ? "any" : "loss") || m.suitable === "any") &&
-          isMealAllergenFree(m, allergies) &&
-          !isMealUsedInLastNDays(m.id, m.meal_type, mealPlan, time, currentDay, repeatDays) &&
-          !usedMealIds.has(m.id)
-      )
-      .sort((a, b) => Math.abs(a.calories - targetCalories * 0.25) - Math.abs(b.calories - targetCalories * 0.25));
-
-    if (carbMeals.length > 0) {
-      carb = carbMeals[0];
+  // 1. Select Carb (if applicable)
+  if (strategy === "COMPOSED_WITH_CARB") {
+    const carb = selectCarbByGoal(meals, goal, allergies);
+    if (carb) {
+      selectedMeals.push(carb);
+      usedMealIds.add(carb.id);
+      remainingCalories -= carb.calories;
+      console.log(`Selected carb: ${carb.name} (${carb.calories} kcal)`);
+    } else {
+      console.warn(`No suitable carb found for ${time} on day ${currentDay}`);
     }
-  }
-
-  if (carb) {
-    selectedMeals.push(carb);
-    usedMealIds.add(carb.id);
-    console.log(`Selected carb for ${time} on day ${currentDay}: ${carb.name} (${carb.calories} kcal)`);
   } else {
-    console.warn(`No carb available for ${time} on day ${currentDay}, skipping carb`);
+    // Strategy is COMPOSED_NO_CARB, so we can add an extra side dish
+    numberOfSideDishes = 4;
+    console.log(`Strategy is COMPOSED_NO_CARB. Selecting ${numberOfSideDishes} side dishes.`);
   }
 
-  const sideTypes = ["salty", "soup", "xvegetable", "lvegetable", "boil"];
-  let sidesSelected = 0;
-  let remainingCalories = targetCalories * 0.65;
-  const usedSideTypes: string[] = [];
 
-  if (selectedMeals.length > 0) {
-    remainingCalories -= selectedMeals[0].calories;
-  }
+  // 2. Select Side Dishes
+  const shuffledSideTypes = sideDishTypes.sort(() => 0.5 - Math.random());
+  let sidesSelectedCount = 0;
 
-  while (sidesSelected < 3 && sideTypes.length > 0) {
-    const availableSideTypes = sideTypes.filter((t) => !usedSideTypes.includes(t));
-    if (availableSideTypes.length === 0) {
-      break;
-    }
+  for (const sideType of shuffledSideTypes) {
+    if (sidesSelectedCount >= numberOfSideDishes) break;
 
-    const sideMeals = meals
-      .filter(
-        (m) =>
-          availableSideTypes.includes(m.meal_type) &&
-          mealTimeFilter(m, time) &&
-          (m.suitable === suitable || m.suitable === "any") &&
-          isMealAllergenFree(m, allergies) &&
-          !isMealUsedInLastNDays(m.id, m.meal_type, mealPlan, time, currentDay, repeatDays) &&
-          !usedMealIds.has(m.id)
-      )
-      .sort((a, b) => Math.abs(a.calories - remainingCalories / (3 - sidesSelected)) - Math.abs(b.calories - remainingCalories / (3 - sidesSelected)));
+    const sideTargetCalories = remainingCalories / (numberOfSideDishes - sidesSelectedCount);
+    const sideMeal = findMealWithFallback(meals, {
+      mealType: sideType,
+      targetCalories: sideTargetCalories,
+      allergies,
+      usedMealIds,
+      suitable,
+      mealPlan,
+      time,
+      currentDay,
+    });
 
-    if (sideMeals.length > 0) {
-      const side = sideMeals[0];
-      selectedMeals.push(side);
-      usedMealIds.add(side.id);
-      usedSideTypes.push(side.meal_type);
-      console.log(`Selected ${side.meal_type} for ${time} on day ${currentDay}: ${side.name} (${side.calories} kcal)`);
-      sidesSelected++;
-      remainingCalories -= side.calories;
-    } else {
-      const fallbackSides = meals.filter(
-        (m) =>
-          availableSideTypes.includes(m.meal_type) &&
-          isMealAllergenFree(m, allergies) &&
-          !isMealUsedInLastNDays(m.id, m.meal_type, mealPlan, time, currentDay, repeatDays) &&
-          !usedMealIds.has(m.id)
+    if (sideMeal) {
+      selectedMeals.push(sideMeal);
+      usedMealIds.add(sideMeal.id);
+      remainingCalories -= sideMeal.calories;
+      sidesSelectedCount++;
+      console.log(
+        `Selected side (${sideType}): ${sideMeal.name} (${sideMeal.calories} kcal)`
       );
-      if (fallbackSides.length > 0) {
-        const side = fallbackSides[Math.floor(Math.random() * fallbackSides.length)];
-        selectedMeals.push(side);
-        usedMealIds.add(side.id);
-        usedSideTypes.push(side.meal_type);
-        console.log(`Selected ${side.meal_type} for ${time} on day ${currentDay}: ${side.name} (${side.calories} kcal)`);
-        sidesSelected++;
-        remainingCalories -= side.calories;
-      } else {
-        console.warn(`No ${availableSideTypes.join(", ")} available for ${time} on day ${currentDay}`);
-        sideTypes.splice(sideTypes.indexOf(availableSideTypes[0]), 1);
-      }
     }
   }
+  if (sidesSelectedCount < numberOfSideDishes) {
+     console.warn(`Could only select ${sidesSelectedCount} out of ${numberOfSideDishes} side dishes.`);
+  }
 
-  const dessert = selectDessertMeal(meals, mealPlan, time, currentDay, targetCalories * 0.1, goal, allergies, usedMealIds, suitable);
+  // 3. Select Dessert
+  const dessertTargetCalories = remainingCalories > 0 ? remainingCalories : targetCalories * 0.1;
+  const dessert = selectSnackOrDessert(meals, "dessert", mealPlan, time, currentDay, dessertTargetCalories, allergies, usedMealIds, suitable);
   if (dessert) {
     selectedMeals.push(dessert);
     usedMealIds.add(dessert.id);
+    console.log(`Selected dessert: ${dessert.name} (${dessert.calories} kcal)`);
   }
 
   return selectedMeals;
-};
-
-// Select snack meal
-const selectSnackMeal = (
-  meals: Meals[],
-  mealPlan: { [day: number]: MealPlanResponse },
-  time: keyof MealPlanResponse,
-  currentDay: number,
-  targetCalories: number,
-  goal: "gain" | "loss" | "maintenance",
-  allergies: string[],
-  usedMealIds: Set<string>,
-  suitable: string
-): Meals | null => {
-  const repeatDays = 2;
-  const snackMeals = meals
-    .filter(
-      (m) =>
-        m.meal_type === "snack" &&
-        (m.suitable === suitable || m.suitable === "any") &&
-        isMealAllergenFree(m, allergies) &&
-        !isMealUsedInLastNDays(m.id, m.meal_type, mealPlan, time, currentDay, repeatDays) &&
-        !usedMealIds.has(m.id)
-    )
-    .sort((a, b) => Math.abs(a.calories - targetCalories) - Math.abs(b.calories - targetCalories));
-
-  if (snackMeals.length > 0) {
-    const snack = snackMeals[0];
-    console.log(`Selected snack for ${time} on day ${currentDay}: ${snack.name} (${snack.calories} kcal)`);
-    return snack;
-  }
-
-  if (goal === "gain") {
-    const snack = selectRandomSnackForGain(meals, mealPlan, time, currentDay, allergies, usedMealIds);
-    if (snack) {
-      console.log(`Selected snack for ${time} on day ${currentDay}: ${snack.name} (${snack.calories} kcal)`);
-      return snack;
-    }
-  } else {
-    const dessert = selectRandomDessertForSnack(meals, mealPlan, time, currentDay, allergies, usedMealIds);
-    if (dessert) {
-      console.log(`Selected dessert for ${time} on day ${currentDay}: ${dessert.name} (${dessert.calories} kcal)`);
-      return dessert;
-    }
-  }
-
-  console.warn(`No snack or dessert available for ${time} on day ${currentDay}`);
-  return null;
 };
 
 // Generate 7-day meal plan
@@ -617,6 +641,7 @@ const generate7DayMealPlan = (
   goal: "gain" | "loss" | "maintenance",
   startDay: number
 ): { mealPlan: { [day: number]: MealPlanResponse }; totalCalories: { [day: number]: number }; totalNutrition: { [day: number]: NutritionSummary }; weeklyTotalCalories: number } => {
+  
   if (!meals || meals.length === 0) {
     throw new Error("Empty meal list");
   }
@@ -660,7 +685,6 @@ const generate7DayMealPlan = (
     totalNutrition[day] = { protein: 0, fat: 0, carbs: 0 };
     const mealSlots = getMealSlots(goal);
     const usedMealIds = new Set<string>();
-    let isMainMealUsed = false;
 
     for (const time of mealSlots) {
       let selectedMeals: Meals[] = [];
@@ -676,29 +700,26 @@ const generate7DayMealPlan = (
           ["main", "carb", "salty", "soup", "xvegetable", "lvegetable", "boil"],
           allergies,
           usedMealIds,
-          suitable,
-          time === "dinner" ? isMainMealUsed : false
+          suitable
         );
-
-        if (time === "lunch" && selectedMeals.some((m) => m.meal_type === "main")) {
-          isMainMealUsed = true;
-          console.log(`Main meal used in lunch on day ${day}`);
+        if (selectedMeals.length === 0) {
+          console.warn(`Could not find any suitable meals for ${time} on day ${day}.`);
         }
       } else {
-        const snack = selectSnackMeal(
+        const snack = selectSnackOrDessert(
           meals,
+          "snack",
           mealPlan,
           time,
           day,
           calorieTargets[time] ?? 0,
-          goal,
           allergies,
           usedMealIds,
           suitable
         );
         if (snack) {
           selectedMeals = [snack];
-        }
+        } 
       }
 
       mealPlan[day][time] = selectedMeals.map((meal) => ({
@@ -717,12 +738,9 @@ const generate7DayMealPlan = (
       totalNutrition[day].protein += selectedMeals.reduce((sum, m) => sum + (m.protein || 0), 0);
       totalNutrition[day].fat += selectedMeals.reduce((sum, m) => sum + (m.fat || 0), 0);
       totalNutrition[day].carbs += selectedMeals.reduce((sum, m) => sum + (m.carbs || 0), 0);
-
-      console.log(`Day[${day}][${time}]: ${mealCalories} kcal`);
     }
 
     weeklyTotalCalories += totalCalories[day];
-    console.log(`Day[${day}]: Total calories: ${totalCalories[day]} kcal, Nutrition: Protein=${totalNutrition[day].protein}g, Fat=${totalNutrition[day].fat}g, Carbs=${totalNutrition[day].carbs}g`);
   }
 
   return { mealPlan, totalCalories, totalNutrition, weeklyTotalCalories };
@@ -1142,25 +1160,74 @@ const getSuggestedMeals = async (
 
   return meals;
 };
-// update swap meal
+
+// Get or create user meal preference
+ const getOrCreatePreference = async (userId: string, mealId: string): Promise<UserMealPreference> => {
+        // Tìm kiếm một bản ghi sở thích đã tồn tại
+        let preference = await userMealPreferenceRepository.findOne({ 
+            where: { userId, mealId } 
+        });
+
+        if (!preference) {
+            preference = userMealPreferenceRepository.create({ 
+                userId, 
+                mealId, 
+                score: 0
+            });
+            await userMealPreferenceRepository.save(preference);
+        }
+
+        return preference;
+}  
+/**
+ * Hoán đổi một món ăn trong kế hoạch của người dùng và cập nhật điểm sở thích.
+ * @param mealPlanMealId ID của bản ghi MealPlanMeal (dòng món ăn trong kế hoạch).
+ * @param newMealId ID của món ăn mới sẽ được thay thế vào.
+ */
 export const swapMealInPlan = async (
-  mealPlanMealId: string,
-  newMealId: string
+  mealPlanMealId: string, 
+  newMealId: string       
 ): Promise<void> => {
   const mealPlanMealRepo = mealRepository.manager.getRepository(MealPlanMeal);
 
+  // 1. Tải bản ghi cần đổi, cùng với tất cả các thông tin liên quan cần thiết.
   const mealPlanMeal = await mealPlanMealRepo.findOne({
     where: { id: mealPlanMealId },
-    relations: ["meal"],
+    relations: [
+        "meal", // Món ăn cũ
+        "meal_plan_day", 
+        "meal_plan_day.mealPlan", 
+        "meal_plan_day.mealPlan.user" // Quan trọng: để lấy được userId
+    ],
   });
 
-  if (!mealPlanMeal) {
-    throw new Error("Không tìm thấy bản ghi món ăn trong kế hoạch");
+  // Kiểm tra xem mọi thứ có tồn tại không
+  if (!mealPlanMeal || !mealPlanMeal.meal_plan_day?.meal_plan?.user) {
+    throw new Error("Không tìm thấy bản ghi món ăn trong kế hoạch hoặc người dùng liên quan.");
   }
 
-  mealPlanMeal.meal = { id: newMealId } as Meal; // chỉ gán id mới
+  // 2. Lưu lại ID của món ăn cũ và ID người dùng TRƯỚC KHI thay đổi.
+  const originalMealId = mealPlanMeal.meal.id;
+  const userId = mealPlanMeal.meal_plan_day.meal_plan.user.id;
 
+  // Không cho phép đổi với chính nó
+  if (originalMealId === newMealId) {
+      return; 
+  }
+
+  // 3. Gán món ăn mới và lưu lại thay đổi trong kế hoạch.
+  mealPlanMeal.meal = { id: newMealId } as Meal;
   await mealPlanMealRepo.save(mealPlanMeal);
+
+  // 4. Cập nhật điểm sở thích một cách an toàn.
+  const originalMealPreference = await getOrCreatePreference(userId, originalMealId);
+  const suggestedMealPreference = await getOrCreatePreference(userId, newMealId);
+
+  originalMealPreference.score -= 1; 
+  suggestedMealPreference.score += 1; 
+
+  // Lưu cả hai thay đổi về điểm trong một lần gọi để tối ưu.
+  await userMealPreferenceRepository.save([originalMealPreference, suggestedMealPreference]);
 };
 
 //update meal plan name
