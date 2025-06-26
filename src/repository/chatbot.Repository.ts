@@ -1,6 +1,6 @@
 import dataSource from "../config/typeorm.config";
-import { Conversation } from "@/model/conversation.entity";
-import { Message } from "@/model/message.entity";
+import { Conversation } from "../model/conversation.entity";
+import { Message } from "../model/message.entity";
 
 export const chatbotRepository = {
   async getConversationById(id: string) {

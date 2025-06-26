@@ -1,4 +1,4 @@
-import { User } from "@/model/users.entity";
+import { User } from "../../model/users.entity";
 interface Login {
   email: string;
   password: string;

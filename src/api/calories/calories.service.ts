@@ -10,13 +10,13 @@ import { userMealPreferenceRepository } from "../../repository/user.meal.prefere
 import {progressRepository} from "../../repository/progress.Repository";
 import {MealPlanSummary, GetSuggestedMealsParams } from "./calories.interface";
 import { CalorieResult,ExtendedCalculateCaloriesParams, MealPlanResponse, MealPlanEntry, NutritionSummary, UpdateMealPlanNameParams, RecordProgressParams} from "./calories.interface";
-import { MealPlanCalorieSummary } from "@/model/mealplan.calories.summary";
-import { UserProgress } from "@/model/user.progress.entity";
+import { MealPlanCalorieSummary } from "../../model/mealplan.calories.summary";
+import { UserProgress } from "../../model/user.progress.entity";
 import { AIResponse } from "../chatbot/chatbot.interface";
 import { UserMealPreference } from "../../model/user.meal.preference.entity";
 import { In } from 'typeorm';
-import { caloriesSummaryPrompt, calorieSummaryMessage } from '@/utils/prompt';
-import {CalculateRepository} from "@/repository/calcutionResult.Reposity";
+import { caloriesSummaryPrompt, calorieSummaryMessage } from '../../utils/prompt';
+import {CalculateRepository} from "../../repository/calcutionResult.Reposity";
 import { get } from "http";
 
 

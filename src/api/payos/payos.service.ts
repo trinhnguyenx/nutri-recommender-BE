@@ -1,8 +1,8 @@
-import { payos } from '@/utils/payos.client';
+import { payos } from '../../utils/payos.client';
 import { CreatePaymentDto } from './payos.interface';
-import { paymentRepository } from '@/repository/payment.repository';
-import { userRepository } from '@/repository/userRepository';
-import { PaymentTransaction } from '@/model/payment.entity';
+import { paymentRepository } from '../../repository/payment.repository';
+import { userRepository } from '../../repository/userRepository';
+import { PaymentTransaction } from '../../model/payment.entity';
 
 
 export const createPaymentService = async (data: CreatePaymentDto & { userId: string }) => {

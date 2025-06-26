@@ -3,6 +3,10 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
+  "_moduleAliases": {
+  "@": "dist"
+},
+
   "scripts": {
     "dev": "nodemon",
     "test": "echo \"Error: no test specified\" && exit 1",
@@ -49,6 +53,7 @@
     "keyv": "^5.2.1",
     "lru-cache": "^11.0.2",
     "mime": "^4.0.7",
+    "module-alias": "^2.2.3",
     "mysql2": "^3.11.3",
     "nodemailer": "^6.9.16",
     "pino": "^9.4.0",

@@ -1,4 +1,4 @@
-import { User } from '@/model/users.entity';
+import { User } from '../../model/users.entity';
 export interface CreatePaymentDto {
   amount: number;
   description: string;

@@ -1,4 +1,4 @@
-import { PaymentTransaction } from '@/model/payment.entity';
+import { PaymentTransaction } from '../model/payment.entity';
 import dataSource from '../config/typeorm.config';
 
 export const paymentRepository = dataSource.getRepository(PaymentTransaction).extend({

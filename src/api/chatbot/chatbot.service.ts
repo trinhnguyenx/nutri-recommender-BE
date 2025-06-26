@@ -2,8 +2,8 @@ import { chatbotRepository } from '../../repository/chatbot.Repository';
 import { generateAIResponse } from '../../utils/gemini.utils';
 import { ChatbotMessageInput } from './chatbot.interface';
 import { Message } from '../../model/message.entity';
-import {promptuserAddingredients} from '@/utils/prompt';
-import {addnewMealandPlusScore} from '@/api/calories/calories.service';
+import {promptuserAddingredients} from '../../utils/prompt';
+import {addnewMealandPlusScore} from '../../api/calories/calories.service';
 export const chatbotService = {
   async handleUserMessage({ userId, conversationId, message }: ChatbotMessageInput) {
     let conversation;

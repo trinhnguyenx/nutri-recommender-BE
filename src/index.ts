@@ -2,10 +2,12 @@ import express, { Express } from "express";
 import authRouter from "./api/auth/auth.router";
 import CaloriesRouter from "./api/calories/calories.router";
 import Chatbot from "./api/chatbot/chatbot.router";
-import Payos from "@/api/payos/payos.router";
+import Payos from "./api/payos/payos.router";
 import dataSource from "./config/typeorm.config";
 import { pino } from "pino";
 import cors from "cors";
+import 'module-alias/register';
+
 
 const app: Express = express();
 const port = 3000;
