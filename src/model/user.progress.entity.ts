@@ -34,9 +34,6 @@ export class UserProgress {
   })
   hunger: string;
 
-  @Column({ type: 'text', nullable: true })
-  note: string;
-
   @Column('float', { default: 0 })
   caloBreakfast: number;
 

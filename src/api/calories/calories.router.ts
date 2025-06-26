@@ -1,13 +1,11 @@
 import { Router } from "express";
-import { calculateCaloriesUser, getMealPlanDetailsController, getUserMealPlansController, getCalculationResultController, getSuggestedMealsForSwap, updateMealInPlan, updateMealPlanNameController, getStatisticsByDayController, recordUserProgressController, getUserProgressController, getLargestDayNumberController } from "./calories.controller";
+import { calculateCaloriesUser, getMealPlanDetailsController, getUserMealPlansController, getCalculationResultController, getSuggestedMealsForSwap, updateMealInPlan, updateMealPlanNameController, recordUserProgressController, getUserProgressController, getLargestDayNumberController, setFavoriteMealController } from "./calories.controller";
 const CaloriesRouter = Router();
 
 CaloriesRouter.post("/calculate", calculateCaloriesUser);
 CaloriesRouter.get("/meal-plans/:userId",getUserMealPlansController);
 CaloriesRouter.get("/meal-menu/:mealPlanId", getMealPlanDetailsController);
-CaloriesRouter.get("/statistics/daily/:userId", (req, res, next) => {
-  Promise.resolve(getStatisticsByDayController(req, res)).catch(next);
-});
+
 CaloriesRouter.get("/calculation-result", (req, res, next) => {
   Promise.resolve(getCalculationResultController(req, res)).catch(next);
 });
@@ -31,4 +29,7 @@ CaloriesRouter.get("/progress/:userId", (req, res, next) => {
 });
 CaloriesRouter.get("/largest-day/:userId", getLargestDayNumberController);
 
+CaloriesRouter.put("/favorite-meal", (req, res, next) => {
+  Promise.resolve(setFavoriteMealController(req, res)).catch(next);
+});
 export default CaloriesRouter;

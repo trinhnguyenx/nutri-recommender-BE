@@ -126,6 +126,19 @@ export interface CalorieStatsResponse {
   summaries: CalorieSummaryByDay;
 }
 
+interface RecordProgressParams {
+  userId: string;
+  weight: number;
+  meals: boolean;
+  sick?: boolean;
+  sleep?: boolean;
+  hunger?: string;
+  caloBreakfast?: number;
+  caloLunch?: number;
+  caloDinner?: number;
+  caloSnack?: number;
+}
+
 export type { CalculateCaloriesParams, CalorieResult, MealRecommendation, 
   MealPlanResponse, ExtendedCalorieResult, ExtendedCalculateCaloriesParams, 
-  MealPlanSummary, GetSuggestedMealsParams, MealPlanEntry, NutritionSummary, UpdateMealPlanNameParams };
+  MealPlanSummary, GetSuggestedMealsParams, MealPlanEntry, NutritionSummary, UpdateMealPlanNameParams,RecordProgressParams };

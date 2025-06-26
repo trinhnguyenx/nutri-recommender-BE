@@ -26,22 +26,36 @@ export async function generateAIResponse(message: string, prompt: string): Promi
     });
 
     if (result?.text) {
+      // Trích xuất khối JSON từ phản hồi của AI
       const jsonText = result.text.trim().match(/\{[\s\S]*?\}/)?.[0];
-      if (!jsonText) throw new Error("Không tìm thấy JSON trong kết quả AI");
+      if (!jsonText) {
+        console.error("Raw AI Response (no JSON found):", result.text);
+        throw new Error("Không tìm thấy đối tượng JSON hợp lệ trong phản hồi của AI.");
+      }
 
-      const parsed = JSON.parse(jsonText);
-      return {
-        title: parsed.title || "",
-        reply: parsed.reply || "Không rõ nội dung",
-      };
+      try {
+        const parsedJson = JSON.parse(jsonText);
+        // Trả về toàn bộ đối tượng đã phân tích. Hàm này giờ đã "động",
+        // nó sẽ bao gồm bất kỳ trường nào do AI cung cấp khớp với interface AIResponse.
+        return parsedJson as AIResponse;
+
+      } catch (e) {
+        console.error("Lỗi khi phân tích JSON từ AI:", e);
+        console.error("JSON Text bị lỗi:", jsonText);
+        throw new Error(`Không thể phân tích phản hồi JSON từ AI. ${e}`);
+      }
     }
 
-    return { title: "", reply: "Lỗi không rõ từ AI" };
+    // Fallback nếu AI không trả về text
+    return { reply: "Lỗi không rõ từ AI. Không nhận được nội dung." };
   } catch (error) {
     console.error("Error in generateAIResponse:", error);
     return {
-      title: "",
-      reply: "Xin lỗi, có lỗi xảy ra khi tạo phản hồi.",
+      reply: `Xin lỗi, có lỗi xảy ra khi tạo phản hồi., ${
+        typeof error === "object" && error !== null && "message" in error
+          ? (error as { message?: string }).message
+          : "Lỗi không xác định"
+      }`,
     };
   }
 }

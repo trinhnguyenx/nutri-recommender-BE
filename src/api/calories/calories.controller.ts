@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { calculateCaloriesAndRecommend, getMealPlanDetails, getUserMealPlans, getCalculationResult, getSuggestedMeals, swapMealInPlan, updateMealPlanName, summarizeMealPlanCalories, recordUserProgress, getUserProgress, getLargestDayNumber } from "./calories.service";
+import { calculateCaloriesAndRecommend, getMealPlanDetails, getUserMealPlans, getCalculationResult, getSuggestedMeals, swapMealInPlan, updateMealPlanName, recordUserProgress, getUserProgress, getLargestDayNumber, setFavoriteMeal } from "./calories.service";
 
 export const calculateCaloriesUser = async (req: Request, res: Response) => {
   try {
@@ -164,52 +164,57 @@ export const updateMealPlanNameController = async (req: Request, res: Response) 
   }
 };
 
-export const getStatisticsByDayController = async (req: Request, res: Response) => {
-  try {
-  const userId = req.params.userId;
-    console.log("userId:", userId);
-    if (!userId || typeof userId !== "string") {
-      return res.status(400).json({ message: "Missing or invalid userId parameter" });
-    }
-    const statistics = await summarizeMealPlanCalories(userId);
-
-    return res.status(200).json({
-      message: "Successfully generated daily meal plan summary",
-      data: statistics,
-    });
-
-  } catch (error: any) {
-    console.error("Error in getStatisticsByDayController:", error);
-
-    return res.status(500).json({
-      message: error.message || "Failed to retrieve meal plan statistics",
-    });
-  }
-};
-
 export const recordUserProgressController = async (req: Request, res: Response) => {
   try {
-    const { userId, weight } = req.body;
+    const {
+      userId,
+      weight,
+      meals,
+      sick,
+      sleep,
+      hunger,
+      caloBreakfast,
+      caloLunch,
+      caloDinner,
+      caloSnack,
+    } = req.body;
 
-    if (!userId || !weight  === undefined) {
-      return res.status(400).json({ message: "Missing required parameters" });
+    // Kiểm tra tham số bắt buộc
+    if (!userId || weight === undefined || meals === undefined) {
+      return res.status(400).json({ message: "Missing required parameters: userId, weight, meals" });
     }
 
-    const result = await recordUserProgress({ 
-      userId, 
-      weight: parseFloat(weight)
-    });
+    const parsedWeight = parseFloat(weight);
+    if (isNaN(parsedWeight) || parsedWeight <= 0) {
+      return res.status(400).json({ message: "Invalid weight value" });
+    }
 
-    res.status(201).json({
+    const progressParams = {
+      userId,
+      weight: parsedWeight,
+      meals,
+      sick,
+      sleep,
+      hunger,
+      caloBreakfast ,
+      caloLunch,
+      caloDinner,
+      caloSnack,
+    };
+
+    const result = await recordUserProgress(progressParams);
+
+    return res.status(201).json({
       message: "Successfully recorded user progress",
       data: result,
     });
   } catch (error: any) {
-    res.status(500).json({
+    return res.status(500).json({
       message: error.message || "Failed to record user progress",
     });
   }
 };
+
 
 export const getUserProgressController = async (req: Request, res: Response) => {
   try {
@@ -248,5 +253,19 @@ export const getLargestDayNumberController = async (req: Request, res: Response)
     res.status(400).json({
       message: error.message || "Failed to retrieve the largest day number",
     });
+  }
+};
+
+export const setFavoriteMealController = async (req: Request, res: Response) => {
+  try {
+    const { userId, mealId, isFavorite } = req.body;
+    console.log("setFavoriteMealController called with:", { userId, mealId, isFavorite });
+    if (!userId || !mealId || typeof isFavorite !== 'boolean') {
+      return res.status(400).json({ message: 'Missing or invalid parameters: userId, mealId, isFavorite' });
+    }
+    await setFavoriteMeal(userId, mealId, isFavorite);
+    res.status(200).json({ message: `Cập nhật trạng thái yêu thích thành công cho mealId=${mealId}` });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message || 'Lỗi khi cập nhật trạng thái yêu thích món ăn' });
   }
 };

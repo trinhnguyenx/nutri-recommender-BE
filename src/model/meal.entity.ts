@@ -31,11 +31,8 @@ export class Meal {
   @Column('text', { nullable: true })
   suitable: string;
 
-  @Column('text', { nullable: true })
-  image_url: string;
-
-  @Column('text', { nullable: true })
-  allergies: string;
+ @Column({ default: false })
+  is_favourite: boolean;
 
   @OneToMany(() => MealPlanMeal, (mealPlanMeal) => mealPlanMeal.meal)
   meal_plan_meals: MealPlanMeal[];

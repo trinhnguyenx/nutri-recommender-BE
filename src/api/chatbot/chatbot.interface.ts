@@ -19,7 +19,18 @@ export interface MessageData {
   conversationId: string;
 }
 export interface AIResponse {
-  title: string;
-  reply: string;
+  title?: string;
+  reply?: string;
+  status?: string;
+  matched_dish_name?: string;
+  matched_ingredients?: string;
+  name?: string;
+  ingredients?: string;
+  calories?: number;
+  protein?: number;
+  fat?: number;
+  carbs?: number;
+  is_favourite?: boolean;
+  meal_type?: string; // 'main', 'snack', etc.
 }
 

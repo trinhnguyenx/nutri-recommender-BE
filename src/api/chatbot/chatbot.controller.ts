@@ -37,6 +37,27 @@ class ChatbotController {
       res.status(500).json({ error: 'Internal server error' });
     }
   }
+  async createMessage(req: Request, res: Response) {
+    try {
+      const {conversationId, message, sender } = req.body;
+      const newMessage = await chatbotService.createMessage(conversationId, message, sender);
+      res.status(201).json(newMessage);
+    } catch (error) {
+      console.error('Error in createMessage:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+  async userInputMessageAddIngredients(req: Request, res: Response) {
+    try {
+      const { conversationId, message, userId } = req.body;
+      console.log('userInputMessageAddIngredients called with:', { conversationId, message, userId });
+      const result = await chatbotService.userInputMessageAddIngredients(message.conversationId, message.message, userId);
+      res.status(201).json(result);
+    } catch (error) {
+      console.error('Error in userInputMessageAddIngredients:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
 }
 
 export const chatbotController = new ChatbotController();
