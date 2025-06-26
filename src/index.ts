@@ -14,20 +14,10 @@ const port = 3000;
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cors({
-  origin: function (origin, callback) {
-    const allowedOrigins = [
-      'https://healthyfit-ria.netlify.app',
-      'http://localhost:5173'
-    ];
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  origin: ['https://healthyfit-ria.netlify.app', 'http://localhost:5173'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'], 
+  allowedHeaders: ['Content-Type', 'Authorization'], 
+  credentials: true, 
 }));
 
 const logger = pino({ name: "server start" });

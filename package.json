@@ -4,9 +4,8 @@
   "description": "",
   "main": "index.js",
   "_moduleAliases": {
-  "@": "dist"
-},
-
+    "@": "dist"
+  },
   "scripts": {
     "dev": "nodemon",
     "test": "echo \"Error: no test specified\" && exit 1",

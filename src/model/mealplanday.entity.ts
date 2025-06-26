@@ -10,7 +10,7 @@ export class MealPlanDay {
   @Column('int')
   day_number: number; 
 
-  @ManyToOne(() => MealPlan, (mealPlan) => mealPlan.meal_plan_days)
+  @ManyToOne(() => MealPlan, (mealPlan) => mealPlan.meal_plan_days, { onDelete: 'CASCADE' })
   meal_plan: MealPlan;
 
   @OneToMany(() => MealPlanMeal, (mealPlanMeal) => mealPlanMeal.meal_plan_day)

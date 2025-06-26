@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { calculateCaloriesAndRecommend, getMealPlanDetails, getUserMealPlans, getCalculationResult, getSuggestedMeals, swapMealInPlan, updateMealPlanName, recordUserProgress, getUserProgress, getLargestDayNumber, setFavoriteMeal } from "./calories.service";
+import { calculateCaloriesAndRecommend, getMealPlanDetails, deleteMealPlan, getUserMealPlans, getCalculationResult, getSuggestedMeals, swapMealInPlan, updateMealPlanName, recordUserProgress, getUserProgress, getLargestDayNumber, setFavoriteMeal } from "./calories.service";
 
 export const calculateCaloriesUser = async (req: Request, res: Response) => {
   try {
@@ -269,3 +269,21 @@ export const setFavoriteMealController = async (req: Request, res: Response) => 
     res.status(500).json({ message: error.message || 'Lỗi khi cập nhật trạng thái yêu thích món ăn' });
   }
 };
+export const deleteMealPlanController = async (req: Request, res: Response) => {
+  try {
+    const { mealPlanId, userId } = req.query;
+    if (!mealPlanId || !userId) {
+      return res.status(400).json({ message: "Missing mealPlanId parameter" });
+    }
+
+    // Xoá kế hoạch bữa ăn từ cơ sở dữ liệu
+    const result = await deleteMealPlan(String(mealPlanId), String(userId));
+    res.status(200).json({
+      message: "Successfully deleted meal plan",
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      message: error.message || "Failed to delete meal plan",
+    });
+  }
+}

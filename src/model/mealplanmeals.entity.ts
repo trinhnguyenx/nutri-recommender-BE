@@ -13,9 +13,9 @@ export class MealPlanMeal {
   })
   meal_time: string;
 
-  @ManyToOne(() => Meal)
+  @ManyToOne(() => Meal, { onDelete: 'CASCADE' })
   meal: Meal;
 
-  @ManyToOne(() => MealPlanDay, (mealPlanDay) => mealPlanDay.meal_plan_meals)
+  @ManyToOne(() => MealPlanDay, (mealPlanDay) => mealPlanDay.meal_plan_meals, { onDelete: 'CASCADE' })
   meal_plan_day: MealPlanDay;
 }

@@ -1480,6 +1480,24 @@ export const addnewMealandPlusScore = async (userId: string, mealData: Partial<M
   };
 }
 
+export const deleteMealPlan = async (mealPlanId: string, userId: string): Promise<void> => {
+  const mealPlanRepo = mealRepository.manager.getRepository(MealPlan);
+
+  // Find the meal plan by ID and verify it belongs to the user
+  const mealPlan = await mealPlanRepo.findOne({
+    where: { id: mealPlanId, user: { id: userId } },
+  });
+
+  if (!mealPlan) {
+    throw new Error("Không tìm thấy kế hoạch bữa ăn hoặc bạn không có quyền xóa nó.");
+  }
+
+  // Delete the meal plan.
+  await mealPlanRepo.remove(mealPlan);
+
+  console.log(`Meal plan ${mealPlanId} deleted successfully for user ${userId}`);
+};
+
 export {
   ExtendedCalculateCaloriesParams,
   getUserMealPlans,

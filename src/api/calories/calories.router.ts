@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { calculateCaloriesUser, getMealPlanDetailsController, getUserMealPlansController, getCalculationResultController, getSuggestedMealsForSwap, updateMealInPlan, updateMealPlanNameController, recordUserProgressController, getUserProgressController, getLargestDayNumberController, setFavoriteMealController } from "./calories.controller";
+import { calculateCaloriesUser, deleteMealPlanController, getMealPlanDetailsController, getUserMealPlansController, getCalculationResultController, getSuggestedMealsForSwap, updateMealInPlan, updateMealPlanNameController, recordUserProgressController, getUserProgressController, getLargestDayNumberController, setFavoriteMealController } from "./calories.controller";
 const CaloriesRouter = Router();
 
 CaloriesRouter.post("/calculate", calculateCaloriesUser);
@@ -31,5 +31,8 @@ CaloriesRouter.get("/largest-day/:userId", getLargestDayNumberController);
 
 CaloriesRouter.put("/favorite-meal", (req, res, next) => {
   Promise.resolve(setFavoriteMealController(req, res)).catch(next);
+});
+CaloriesRouter.delete("/meal-plan/delete", (req, res, next) => {
+  Promise.resolve(deleteMealPlanController(req, res)).catch(next);
 });
 export default CaloriesRouter;
