@@ -58,6 +58,16 @@ class ChatbotController {
       res.status(500).json({ error: 'Internal server error' });
     }
   }
+  async chatbotstatistics(req: Request, res: Response) {
+    try {
+      const { message } = req.body;
+      const statistics = await chatbotService.getChatbotStatistics(message);
+      res.json(statistics);
+    } catch (error) {
+      console.error('Error in chatbotstatistics:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
 }
 
 export const chatbotController = new ChatbotController();

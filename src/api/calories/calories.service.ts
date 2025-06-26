@@ -15,7 +15,6 @@ import { UserProgress } from "../../model/user.progress.entity";
 import { AIResponse } from "../chatbot/chatbot.interface";
 import { UserMealPreference } from "../../model/user.meal.preference.entity";
 import { In } from 'typeorm';
-import { caloriesSummaryPrompt, calorieSummaryMessage } from '../../utils/prompt';
 import {CalculateRepository} from "../../repository/calcutionResult.Reposity";
 import { get } from "http";
 
@@ -1270,16 +1269,6 @@ export const summarizeMealPlanCaloriesToday = async (
 
   await summaryRepo.save(summary);
 
-  // if (withAI) {
-  //   const message = calorieSummaryMessage(
-  //     goal === 'gain' ? 'Tăng cân' : goal === 'loss' ? 'Giảm cân' : 'Duy trì cân nặng',
-  //     mealPlan.targetCalories,
-  //     summary.total_daily_calories,
-  //     [`Ngày hôm nay (day ${todayDayNumber}): ${summary.total_daily_calories.toFixed(0)} kcal`]
-  //   );
-
-  //   const aiAssessment = await generateAIResponse(message, caloriesSummaryPrompt);
-  // }
 
   return {
     todaySummary: summary,

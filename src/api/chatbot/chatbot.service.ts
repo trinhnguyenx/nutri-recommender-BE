@@ -2,7 +2,7 @@ import { chatbotRepository } from '../../repository/chatbot.Repository';
 import { generateAIResponse } from '../../utils/gemini.utils';
 import { ChatbotMessageInput } from './chatbot.interface';
 import { Message } from '../../model/message.entity';
-import {promptuserAddingredients} from '../../utils/prompt';
+import {promptuserAddingredients,calorieSummaryMessage} from '../../utils/prompt';
 import {addnewMealandPlusScore} from '../../api/calories/calories.service';
 export const chatbotService = {
   async handleUserMessage({ userId, conversationId, message }: ChatbotMessageInput) {
@@ -176,5 +176,13 @@ text: Bạn là một chuyên gia dinh dưỡng và sức khỏe thân thiện, 
     await chatbotRepository.saveMessages([userMsg, aiMsg]);
 
     return {aiResponse, aimessage};
+  },
+
+  async getChatbotStatistics(message: string) {
+    const aiResponse = await generateAIResponse(message, calorieSummaryMessage);
+    if (!aiResponse ) {
+      throw new Error('AI trả về dữ liệu không hợp lệ');
+    }
+    return aiResponse;
   }
 };
