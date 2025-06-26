@@ -51,7 +51,7 @@ class ChatbotController {
     try {
       const { conversationId, message, userId } = req.body;
       console.log('userInputMessageAddIngredients called with:', { conversationId, message, userId });
-      const result = await chatbotService.userInputMessageAddIngredients(message.conversationId, message.message, userId);
+      const result = await chatbotService.userInputMessageAddIngredients(message.conversationId, message.message, message.userId);
       res.status(201).json(result);
     } catch (error) {
       console.error('Error in userInputMessageAddIngredients:', error);

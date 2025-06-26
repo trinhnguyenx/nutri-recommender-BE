@@ -3,21 +3,14 @@ import { AIResponse } from "../api/chatbot/chatbot.interface";
 export async function generateAIResponse(message: string, prompt: string): Promise<AIResponse> {
   try {
     const { GoogleGenAI } = await import("@google/genai");
-
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+
     const config = {
       responseMimeType: "text/plain",
-      systemInstruction: [
-       prompt
-      ],
+      systemInstruction: [prompt],
     };
 
-    const contents = [
-      {
-        role: "user",
-        parts: [{ text: message }],
-      },
-    ];
+    const contents = [{ role: "user", parts: [{ text: message }] }];
 
     const result = await ai.models.generateContent({
       model: "gemini-2.0-flash-lite",
@@ -25,37 +18,44 @@ export async function generateAIResponse(message: string, prompt: string): Promi
       contents,
     });
 
-    if (result?.text) {
-      // Trích xuất khối JSON từ phản hồi của AI
-      const jsonText = result.text.trim().match(/\{[\s\S]*?\}/)?.[0];
-      if (!jsonText) {
-        console.error("Raw AI Response (no JSON found):", result.text);
-        throw new Error("Không tìm thấy đối tượng JSON hợp lệ trong phản hồi của AI.");
-      }
-
-      try {
-        const parsedJson = JSON.parse(jsonText);
-        // Trả về toàn bộ đối tượng đã phân tích. Hàm này giờ đã "động",
-        // nó sẽ bao gồm bất kỳ trường nào do AI cung cấp khớp với interface AIResponse.
-        return parsedJson as AIResponse;
-
-      } catch (e) {
-        console.error("Lỗi khi phân tích JSON từ AI:", e);
-        console.error("JSON Text bị lỗi:", jsonText);
-        throw new Error(`Không thể phân tích phản hồi JSON từ AI. ${e}`);
-      }
+    const aiText = result?.text?.trim();
+    if (!aiText) {
+      return { reply: "Không nhận được phản hồi từ AI." };
     }
 
-    // Fallback nếu AI không trả về text
-    return { reply: "Lỗi không rõ từ AI. Không nhận được nội dung." };
+    console.log("⚙️ Raw AI response:\n", aiText);
+
+    // Thử tìm JSON thô
+    const jsonMatch = aiText.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      throw new Error("Không tìm thấy JSON hợp lệ trong phản hồi.");
+    }
+
+    let jsonText = jsonMatch[0]
+      .replace(/[“”]/g, '"') // chuyển về dấu ngoặc kép chuẩn
+      .replace(/,\s*}/g, '}') // loại dấu , thừa
+      .replace(/,\s*]/g, ']'); // loại dấu , thừa trong mảng
+
+    // Nếu thiếu dấu } đóng cuối, thêm vào
+    if (!jsonText.trim().endsWith("}")) {
+      jsonText += "}";
+    }
+
+    try {
+      const parsed = JSON.parse(jsonText);
+      return parsed as AIResponse;
+    } catch (e) {
+      console.error("❌ Lỗi khi parse JSON:\n", jsonText);
+      throw new Error(`Không thể phân tích JSON từ AI. ${e}`);
+    }
   } catch (error) {
-    console.error("Error in generateAIResponse:", error);
+    console.error("🔥 Error in generateAIResponse:", error);
     return {
-      reply: `Xin lỗi, có lỗi xảy ra khi tạo phản hồi., ${
+      reply:
         typeof error === "object" && error !== null && "message" in error
-          ? (error as { message?: string }).message
-          : "Lỗi không xác định"
-      }`,
+          ? (error as { message?: string }).message || "Lỗi không xác định"
+          : "Đã xảy ra lỗi không xác định.",
     };
   }
 }
+

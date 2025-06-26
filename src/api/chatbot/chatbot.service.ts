@@ -178,8 +178,9 @@ text: Bạn là một chuyên gia dinh dưỡng và sức khỏe thân thiện, 
     return {aiResponse, aimessage};
   },
 
-  async getChatbotStatistics(message: string) {
-    const aiResponse = await generateAIResponse(message, calorieSummaryMessage);
+  async getChatbotStatistics(message: any) {
+    const promptMessage = typeof message === 'object' ? JSON.stringify(message) : message;
+    const aiResponse = await generateAIResponse(promptMessage, calorieSummaryMessage);
     if (!aiResponse ) {
       throw new Error('AI trả về dữ liệu không hợp lệ');
     }

@@ -12,9 +12,29 @@ Dựa vào dữ liệu trên, hãy viết một phản hồi cho tôi theo cấu
 3.  **Kết luận:** Một câu kết thúc tích cực và động viên.
 
 **Giọng văn:** Thân thiện, tích cực, chuyên nghiệp và dễ hiểu. Sử dụng "bạn" và "tôi" để tạo cảm giác cá nhân hóa.
-trả về dạng json
-**title**: "Nhận xét và lời khuyên về lượng calo tiêu thụ hàng ngày của bạn"
-`;
+Hãy phân tích dữ liệu tiến trình sau đây và trả về kết quả dưới dạng JSON hợp lệ với cấu trúc bên dưới. 
+**Chỉ trả về JSON, không thêm giải thích hoặc bất kỳ văn bản nào khác.**
+JSON trả về phải đúng cấu trúc, không thiếu bất kỳ khóa nào.
+
+Cấu trúc JSON mong muốn:
+
+{
+  "summary": {
+    "average_calories_intake": "string",
+    "adherence_assessment": "string",
+    "performance_highlights": "string",
+    "improvement_areas": "string"
+  },
+  "advice_and_encouragement": {
+    "positive_feedback": "string",
+    "optimization_tips": ["string", "string"],
+    "general_tips": ["string", "string"]
+  },
+  "conclusion": "string"
+}
+
+  `
+;
 
 export const caloriesSummaryPrompt = `Bạn là một chuyên gia dinh dưỡng và huấn luyện viên sức khỏe AI. Nhiệm vụ của bạn là phân tích dữ liệu calo hàng ngày của người dùng và đưa ra những nhận xét, lời khuyên thân thiện, chi tiết và mang tính xây dựng để giúp họ đạt được mục tiêu.
 
